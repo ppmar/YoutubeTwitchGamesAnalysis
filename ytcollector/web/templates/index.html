@@ -111,6 +111,25 @@
   </section>
 </main>
 
+<section class="band" aria-labelledby="h-export">
+  <h2 id="h-export">Emporter les données</h2>
+  <p class="note">
+    Quatre tables en CSV, construites à la demande depuis la base de collecte.
+    <code>joined</code> est celle de l'analyse : Twitch et YouTube côte à côte sur
+    <code>(game_id, year, month)</code>.
+  </p>
+  <ul class="downloads">
+    <li><a href="/export/joined.csv" download>joined.csv</a>
+        <span>Twitch et YouTube joints — la table d'analyse</span></li>
+    <li><a href="/export/yt_game_month.csv" download>yt_game_month.csv</a>
+        <span>score d'attention et agrégats YouTube mensuels</span></li>
+    <li><a href="/export/twitch_game_month.csv" download>twitch_game_month.csv</a>
+        <span>heures regardées par jeu et par mois, <code>valid_from</code> appliqué</span></li>
+    <li><a href="/export/games.csv" download>games.csv</a>
+        <span>les 43 entrées de l'étude et leurs agrégats</span></li>
+  </ul>
+</section>
+
 <footer>
   <p>
     Lecture seule. Cette page n'écrit rien et n'appelle jamais l'API YouTube.

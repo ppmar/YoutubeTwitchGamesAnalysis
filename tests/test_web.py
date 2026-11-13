@@ -157,3 +157,37 @@ class TestRuntimeDirectories:
         finally:
             monkeypatch.undo()
             importlib.reload(config_module)
+
+
+class TestExports:
+    def test_every_export_downloads_as_csv(self, client: TestClient) -> None:
+        for name in ("games", "twitch_game_month", "yt_game_month", "joined"):
+            response = client.get(f"/export/{name}.csv")
+            assert response.status_code == 200, name
+            assert response.headers["content-type"].startswith("text/csv")
+            assert f"{name}.csv" in response.headers["content-disposition"]
+
+    def test_games_export_has_a_row_per_entry(self, client: TestClient) -> None:
+        body = client.get("/export/games.csv").text
+        lines = [line for line in body.splitlines() if line.strip()]
+        assert len(lines) == 44  # 43 games plus the header
+        assert lines[0].startswith("game_id,")
+
+    def test_twitch_export_is_one_row_per_game_month(self, client: TestClient) -> None:
+        import csv
+        import io as _io
+
+        rows = list(csv.DictReader(_io.StringIO(client.get("/export/twitch_game_month.csv").text)))
+        keys = [(r["game_id"], r["year"], r["month"]) for r in rows]
+        assert len(keys) == len(set(keys))
+
+    def test_an_unknown_export_is_not_found(self, client: TestClient) -> None:
+        assert client.get("/export/secrets.csv").status_code == 404
+
+    def test_the_joined_export_keeps_the_twitch_side_when_youtube_is_empty(
+        self, client: TestClient
+    ) -> None:
+        # Before any collection there is no attention; the join must not come back
+        # empty, or the page would offer a file with nothing in it.
+        body = client.get("/export/joined.csv").text
+        assert len(body.splitlines()) > 100

@@ -7,6 +7,7 @@ YouTube API, so it cannot spend quota.
 
 from __future__ import annotations
 
+import io
 import os
 from datetime import UTC, datetime, timedelta
 from functools import lru_cache
@@ -224,6 +225,73 @@ def collect_state(session: Session, study: str) -> dict[str, Any]:
 def api_state() -> JSONResponse:
     with session_scope() as session:
         return JSONResponse(collect_state(session, current_study()))
+
+
+EXPORTS = {
+    "yt_game_month": "Le résultat : score d'attention et agrégats mensuels par jeu.",
+    "games": "Les jeux de l'étude et leurs agrégats Twitch.",
+    "twitch_game_month": "Twitch replié à une ligne par jeu et par mois.",
+    "joined": "Twitch et YouTube joints sur (game_id, year, month).",
+}
+
+
+def _export_frame(session: Session, study: str, name: str) -> Any:
+    """Build one export as a DataFrame. Everything is derived, nothing is cached."""
+    import pandas as pd
+    from sqlalchemy import select as sa_select
+
+    if name == "games":
+        return tables.games_frame(session, study)
+
+    if name == "twitch_game_month":
+        return tables.twitch_game_month(session, study, twitch_frame())
+
+    rows = pd.DataFrame(
+        [
+            {c.name: getattr(row, c.name) for c in GameMonth.__table__.columns}
+            for row in session.scalars(
+                sa_select(GameMonth).where(GameMonth.study == study)
+            )
+        ]
+    )
+    if name == "yt_game_month":
+        return rows
+
+    # joined: the whole point of the study, Twitch beside YouTube.
+    twitch = tables.twitch_game_month(session, study, twitch_frame())
+    if rows.empty or twitch.empty:
+        return twitch if rows.empty else rows
+    merged = twitch.merge(
+        rows.drop(columns=["study"], errors="ignore"),
+        on=["game_id", "year", "month"],
+        how="outer",
+        suffixes=("_twitch", "_youtube"),
+    )
+    return merged.sort_values(["game_id", "year", "month"])
+
+
+@app.get("/export/{name}.csv")
+def export_csv(name: str):  # type: ignore[no-untyped-def]
+    """Download one table as CSV. Read-only, like everything else here."""
+    from fastapi import HTTPException
+    from fastapi.responses import StreamingResponse
+
+    if name not in EXPORTS:
+        raise HTTPException(status_code=404, detail=f"unknown export: {name}")
+
+    study = current_study()
+    with session_scope() as session:
+        frame = _export_frame(session, study, name)
+
+    buffer = io.StringIO()
+    frame.to_csv(buffer, index=False)
+    buffer.seek(0)
+    filename = f"{study}_{name}.csv"
+    return StreamingResponse(
+        iter([buffer.getvalue()]),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @app.get("/healthz")

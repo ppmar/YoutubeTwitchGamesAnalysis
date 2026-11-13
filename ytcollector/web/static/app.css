@@ -308,3 +308,18 @@ footer p { margin: 0 0 4px; max-width: var(--measure); }
 .cmp-key { display: flex; gap: 14px; font-size: .76rem; color: var(--ink-soft); margin-top: 6px; }
 .cmp-key span { display: inline-flex; align-items: center; gap: 6px; }
 .cmp-key i { width: 12px; height: 2px; flex: none; }
+
+
+/* ---- downloads --------------------------------------------------------- */
+
+.downloads { list-style: none; padding: 0; margin: 0; max-width: 680px; }
+.downloads li {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px;
+  padding: 10px 0; border-bottom: 1px solid var(--rule-soft);
+}
+.downloads a {
+  color: var(--s1); font-weight: 500; text-decoration: none;
+  border-bottom: 1px solid currentColor;
+}
+.downloads a:hover { color: var(--ink); }
+.downloads span { color: var(--ink-soft); font-size: .84rem; }
