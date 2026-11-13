@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Collecteur Procom — {{ state.title }}</title>
+<meta name="description" content="État de la collecte YouTube et signal Twitch pour l'étude {{ state.title }}.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap">
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<a class="skip" href="#collecte">Aller au contenu</a>
+
+<header class="strip">
+  <div class="strip-in">
+    <p class="mark">Procom<span>·</span>collecteur YouTube</p>
+    <p class="strip-state" data-state-label>{{ state.stateLabel }}</p>
+  </div>
+</header>
+
+<main>
+  <section class="band" id="collecte" aria-labelledby="h-collecte">
+    <h1 id="h-collecte">La collecte avance au rythme du quota</h1>
+    <p class="lede">
+      YouTube n'accorde que <b data-per-day>{{ state.quota.searchPerDay | fr }}</b> appels de recherche par jour, remis à zéro
+      à minuit, heure du Pacifique. L'étude en demande <b data-total-slices>{{ state.progress.totalSlices | fr }} tranches</b>.
+      Chaque case ci-dessous vaut une journée de quota.
+    </p>
+
+    <div class="cal" data-calendar role="img" aria-label="Avancement de la collecte, une case par journée de quota"></div>
+
+    <dl class="readout">
+      <div><dt>Tranches collectées</dt><dd data-done>{{ state.progress.done | fr }}<small> / {{ state.progress.totalSlices | fr }}</small></dd></div>
+      <div><dt>Jours restants</dt><dd data-days>{{ state.progress.daysRemaining | fr }}</dd></div>
+      <div><dt>Appels restants aujourd'hui</dt><dd data-search-left>{{ state.quota.search_remaining | fr }}</dd></div>
+      <div><dt>Remise à zéro dans</dt><dd data-reset>{{ state.quota.resetsInLabel }}<small> heure du Pacifique</small></dd></div>
+    </dl>
+  </section>
+
+  <section class="band" aria-labelledby="h-corpus">
+    <h2 id="h-corpus">Ce qui est en base</h2>
+    <table class="corpus">
+      <tbody>
+        <tr><th scope="row">Jeux suivis</th><td data-c-games>{{ state.counts.games | fr }}</td><td class="hint" data-c-games-note>sur {{ state.counts.gamesTotal | fr }} entrées de l'étude</td></tr>
+        <tr><th scope="row">Vidéos découvertes</th><td data-c-videos>{{ state.counts.videos | fr }}</td><td class="hint" data-c-matched>{% if state.counts.videos %}{{ state.counts.matched | fr }} citent le jeu dans leur titre, tags ou description{% else %}aucune recherche lancée{% endif %}</td></tr>
+        <tr><th scope="row">Chaînes</th><td data-c-channels>{{ state.counts.channels | fr }}</td><td class="hint">éditrices des vidéos trouvées</td></tr>
+        <tr><th scope="row">Commentaires datés</th><td data-c-comments>{{ state.counts.comments | fr }}</td><td class="hint">horodatage seul, ni auteur ni texte</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="band" aria-labelledby="h-twitch">
+    <h2 id="h-twitch">Le signal Twitch</h2>
+    <p class="note">
+      Heures regardées par mois, les quatre leaders détaillés et le reste du genre agrégé.
+      C'est la série que le score d'attention viendra croiser. Un mois absent n'est pas un
+      mois à zéro : le jeu est passé sous le 200ᵉ rang.
+    </p>
+    <figure class="plot">
+      <div class="legend" data-legend></div>
+      <div class="canvas" data-chart-twitch></div>
+    </figure>
+  </section>
+
+  <section class="band" aria-labelledby="h-attention">
+    <h2 id="h-attention">L'attention YouTube</h2>
+    <div data-attention-empty>
+      <p class="empty">
+        Rien à montrer tant que la collecte n'a pas tourné. L'indice d'attention répartit les
+        vues cumulées de chaque vidéo sur les mois où ses commentaires ont été écrits, puis
+        ramène chaque jeu sur 0–100.
+      </p>
+      <p class="note">Lancez <code>ytc daily</code> ou retirez <code>YTC_DRY_RUN</code> du service de collecte.</p>
+    </div>
+    <figure class="plot" data-attention-plot hidden>
+      <div class="canvas" data-chart-attention></div>
+    </figure>
+  </section>
+
+  <section class="band" aria-labelledby="h-roster">
+    <h2 id="h-roster">Les jeux de l'étude</h2>
+    <p class="note">
+      <b data-roster-on>{{ state.counts.games | fr }}</b> actifs. Les autres n'ont le battle royale que comme mode et
+      restent désactivés. <i>Tranches</i> est le coût de collecte de chaque jeu.
+    </p>
+    <div class="scroll">
+      <table class="roster">
+        <thead>
+          <tr>
+            <th scope="col">Jeu</th>
+            <th scope="col">Rôle</th>
+            <th scope="col" class="num">Mois</th>
+            <th scope="col">Période</th>
+            <th scope="col">Pic</th>
+            <th scope="col" class="num">Rang</th>
+            <th scope="col" class="num">Heures</th>
+            <th scope="col" class="num">Tranches</th>
+          </tr>
+        </thead>
+        <tbody data-roster></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>
+    Lecture seule. Cette page n'écrit rien et n'appelle jamais l'API YouTube.
+    Données relues le <span data-generated>{{ state.generatedLabel }}</span>.
+  </p>
+  <p class="hint">
+    Le dataset Twitch s'arrête en septembre 2024 et ne retient que le top 200 mensuel.
+  </p>
+</footer>
+
+<script id="state" type="application/json">{{ state | tojson }}</script>
+<script src="/static/app.js"></script>
+</body>
+</html>

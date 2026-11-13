@@ -1,0 +1,279 @@
+/* Collecteur Procom — an instrument readout for a rate-limited collector.
+   Cool slate ground, teal for data, amber for the quota that governs everything. */
+
+:root {
+  --paper:      #eceff0;
+  --paper-sunk: #e2e7e8;
+  --ink:        #18242c;
+  --ink-soft:   #5b6c76;
+  --ink-faint:  #8d9ba3;
+  --rule:       #c9d2d5;
+  --rule-soft:  #dde3e5;
+  --signal:     #0d6460;
+  --signal-dim: #a8c8c5;
+  --amber:      #a2641f;
+  --amber-dim:  #e0cdaf;
+  --bad:        #9c3a2c;
+
+  --sans: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --serif: "Newsreader", Georgia, "Times New Roman", serif;
+
+  --measure: 62ch;
+  --gutter: clamp(20px, 5vw, 72px);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper:      #0f171c;
+    --paper-sunk: #161f25;
+    --ink:        #e3e9eb;
+    --ink-soft:   #9aa9b2;
+    --ink-faint:  #6b7a83;
+    --rule:       #2a363e;
+    --rule-soft:  #1d272d;
+    --signal:     #45b3a9;
+    --signal-dim: #2b4e4d;
+    --amber:      #d59a52;
+    --amber-dim:  #4a3a24;
+    --bad:        #d4705e;
+  }
+}
+:root[data-theme="dark"] {
+  --paper:      #0f171c;
+  --paper-sunk: #161f25;
+  --ink:        #e3e9eb;
+  --ink-soft:   #9aa9b2;
+  --ink-faint:  #6b7a83;
+  --rule:       #2a363e;
+  --rule-soft:  #1d272d;
+  --signal:     #45b3a9;
+  --signal-dim: #2b4e4d;
+  --amber:      #d59a52;
+  --amber-dim:  #4a3a24;
+  --bad:        #d4705e;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+.skip {
+  position: absolute; left: -9999px;
+  background: var(--ink); color: var(--paper); padding: 10px 14px;
+}
+.skip:focus { left: var(--gutter); top: 8px; z-index: 20; }
+
+:where(a):focus-visible, :where(button):focus-visible {
+  outline: 2px solid var(--signal); outline-offset: 3px;
+}
+
+/* ---- status strip ------------------------------------------------------ */
+
+.strip {
+  border-bottom: 1px solid var(--rule);
+  background: var(--paper-sunk);
+  padding-top: env(safe-area-inset-top, 0px);
+}
+.strip-in {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px 20px;
+  padding: 10px var(--gutter);
+  max-width: 1180px; margin: 0 auto;
+}
+.mark {
+  margin: 0; font-weight: 600; font-size: 13px; letter-spacing: .01em;
+}
+.mark span { color: var(--ink-faint); margin: 0 .5em; font-weight: 400; }
+.strip-state {
+  margin: 0 0 0 auto; font-size: 13px; color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+.strip-state b { color: var(--ink); font-weight: 500; }
+
+/* ---- bands ------------------------------------------------------------- */
+
+main { max-width: 1180px; margin: 0 auto; }
+
+.band {
+  padding: clamp(34px, 6vw, 68px) var(--gutter);
+  border-bottom: 1px solid var(--rule-soft);
+}
+.band:last-of-type { border-bottom: 0; }
+
+h1 {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: clamp(1.9rem, 1.2rem + 2.6vw, 3.1rem);
+  line-height: 1.12;
+  letter-spacing: -.012em;
+  margin: 0 0 .5em;
+  max-width: 17ch;
+  text-wrap: balance;
+}
+h2 {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: clamp(1.35rem, 1rem + 1.1vw, 1.8rem);
+  line-height: 1.2;
+  margin: 0 0 .4em;
+  text-wrap: balance;
+}
+.lede {
+  font-family: var(--serif);
+  font-size: 1.12rem; line-height: 1.6;
+  color: var(--ink-soft);
+  max-width: var(--measure);
+  margin: 0 0 2.2rem;
+}
+.lede b { color: var(--ink); font-weight: 500; font-variant-numeric: tabular-nums; }
+.note {
+  max-width: var(--measure); color: var(--ink-soft);
+  font-size: .9rem; margin: 0 0 1.4rem;
+}
+.note b { color: var(--ink); font-weight: 500; }
+.hint { color: var(--ink-faint); font-size: .82rem; }
+code {
+  font-family: var(--sans); font-weight: 500; font-size: .92em;
+  background: var(--paper-sunk); padding: 1px 5px; border-radius: 2px;
+}
+
+/* ---- the collection calendar: one cell per day of quota ---------------- */
+
+.cal {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(38px, 1fr));
+  gap: 5px;
+  margin: 0 0 2rem;
+  max-width: 820px;
+}
+.cal-day {
+  aspect-ratio: 1;
+  border: 1px solid var(--rule);
+  background: var(--paper-sunk);
+  position: relative;
+  overflow: hidden;
+}
+.cal-fill {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  background: var(--signal);
+}
+.cal-day[data-today="yes"] { border-color: var(--amber); border-width: 2px; }
+.cal-day[data-today="yes"] .cal-fill { background: var(--amber); }
+.cal-n {
+  position: absolute; inset: 0;
+  display: grid; place-items: center;
+  font-size: 11px; font-variant-numeric: tabular-nums;
+  color: var(--ink-faint);
+}
+.cal-day[data-full="yes"] .cal-n { color: var(--paper); }
+
+/* ---- readout ----------------------------------------------------------- */
+
+.readout {
+  display: grid; gap: 1px;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  background: var(--rule-soft);
+  border: 1px solid var(--rule-soft);
+  margin: 0;
+}
+.readout > div { background: var(--paper); padding: 14px 16px; }
+.readout dt { color: var(--ink-soft); font-size: .78rem; margin: 0 0 2px; }
+.readout dd {
+  margin: 0; font-family: var(--serif); font-size: 1.7rem; line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.readout dd small { font-family: var(--sans); font-size: .78rem; color: var(--ink-soft); }
+
+/* ---- corpus table ------------------------------------------------------ */
+
+.corpus { border-collapse: collapse; width: 100%; max-width: 720px; }
+.corpus th, .corpus td {
+  text-align: left; padding: 11px 0; border-bottom: 1px solid var(--rule-soft);
+  vertical-align: baseline;
+}
+.corpus th { font-weight: 400; color: var(--ink-soft); }
+.corpus td:nth-child(2) {
+  font-family: var(--serif); font-size: 1.35rem;
+  font-variant-numeric: tabular-nums; width: 1%; white-space: nowrap;
+  padding-right: 18px; text-align: right;
+}
+.corpus td.hint { font-size: .82rem; }
+
+/* ---- plots ------------------------------------------------------------- */
+
+.plot { margin: 0; }
+.canvas { position: relative; }
+.canvas svg { display: block; width: 100%; height: auto; }
+.canvas .ax text { fill: var(--ink-faint); font-size: 11px; font-family: var(--sans); }
+.canvas .ax line { stroke: var(--rule-soft); }
+.canvas .ax .base { stroke: var(--rule); }
+
+.legend {
+  display: flex; flex-wrap: wrap; gap: 6px 18px;
+  font-size: .82rem; color: var(--ink-soft); margin-bottom: 14px;
+}
+.legend span { display: inline-flex; align-items: center; gap: 7px; }
+.legend i { width: 14px; height: 2px; flex: none; }
+
+.tip {
+  position: absolute; pointer-events: none; opacity: 0; z-index: 4;
+  background: var(--paper); border: 1px solid var(--rule);
+  padding: 9px 11px; font-size: .8rem; min-width: 168px;
+  box-shadow: 0 6px 18px rgb(0 0 0 / .09);
+}
+.tip-h { font-weight: 600; margin-bottom: 5px; }
+.tip-r { display: flex; gap: 8px; color: var(--ink-soft); }
+.tip-r b { margin-left: auto; color: var(--ink); font-weight: 500; font-variant-numeric: tabular-nums; }
+.tip-r i { width: 10px; height: 2px; align-self: center; flex: none; }
+
+.empty {
+  max-width: var(--measure); margin: 0 0 .9rem;
+  font-family: var(--serif); font-size: 1.05rem; color: var(--ink-soft);
+  border-left: 2px solid var(--amber); padding-left: 16px;
+}
+
+/* ---- roster ------------------------------------------------------------ */
+
+.scroll { overflow-x: auto; }
+.roster { border-collapse: collapse; width: 100%; font-size: .86rem; }
+.roster th, .roster td {
+  padding: 8px 14px 8px 0; text-align: left; white-space: nowrap;
+  border-bottom: 1px solid var(--rule-soft);
+}
+.roster thead th {
+  font-weight: 500; color: var(--ink-soft); font-size: .78rem;
+  border-bottom: 1px solid var(--rule);
+  position: sticky; top: 0; background: var(--paper);
+}
+.roster .num { text-align: right; font-variant-numeric: tabular-nums; }
+.roster tbody tr[data-off="yes"] td { color: var(--ink-faint); }
+.roster .name { font-weight: 500; }
+.roster .off {
+  font-size: .72rem; color: var(--ink-faint); border: 1px solid var(--rule);
+  padding: 0 5px; margin-left: 8px;
+}
+.roster .bar {
+  display: inline-block; height: 7px; background: var(--signal-dim);
+  vertical-align: middle; margin-left: 8px; min-width: 1px;
+}
+
+/* ---- footer ------------------------------------------------------------ */
+
+footer {
+  max-width: 1180px; margin: 0 auto;
+  padding: 28px var(--gutter) calc(40px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--rule);
+  color: var(--ink-soft); font-size: .82rem;
+}
+footer p { margin: 0 0 4px; max-width: var(--measure); }
+
+@media (prefers-reduced-motion: no-preference) {
+  .cal-fill { transition: height 420ms cubic-bezier(.2,.7,.3,1); }
+}
