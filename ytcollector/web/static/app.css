@@ -15,6 +15,16 @@
   --amber-dim:  #e0cdaf;
   --bad:        #9c3a2c;
 
+  /* Chart series. Four hues checked with the palette validator: chroma,
+     colour-vision separation and contrast pass on both grounds. The fifth
+     series is the genre aggregate and is drawn dashed in a neutral rather
+     than given a fifth hue to tell apart. */
+  --s1: #0072B2;  /* blue   */
+  --s2: #B04E00;  /* orange */
+  --s3: #009E73;  /* green  */
+  --s4: #D9A800;  /* gold   */
+  --s-other: #7d8c95;
+
   --sans: "Archivo", "Helvetica Neue", Arial, sans-serif;
   --serif: "Newsreader", Georgia, "Times New Roman", serif;
 
@@ -36,6 +46,7 @@
     --amber:      #d59a52;
     --amber-dim:  #4a3a24;
     --bad:        #d4705e;
+    --s-other:    #8d9ba3;
   }
 }
 :root[data-theme="dark"] {
@@ -51,6 +62,7 @@
   --amber:      #d59a52;
   --amber-dim:  #4a3a24;
   --bad:        #d4705e;
+  --s-other:    #8d9ba3;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -290,8 +302,8 @@ footer p { margin: 0 0 4px; max-width: var(--measure); }
   font-size: .78rem; border: 1px solid var(--rule); padding: 0 6px;
   color: var(--ink-soft); white-space: nowrap;
 }
-.cmp-gap[data-lead="youtube"] { border-color: var(--signal); color: var(--signal); }
-.cmp-gap[data-lead="twitch"] { border-color: var(--amber); color: var(--amber); }
+.cmp-gap[data-lead="youtube"] { border-color: var(--s1); color: var(--s1); }
+.cmp-gap[data-lead="twitch"] { border-color: var(--s2); color: var(--s2); }
 .cmp-sub { font-size: .78rem; color: var(--ink-faint); margin: 0 0 8px; }
 .cmp-key { display: flex; gap: 14px; font-size: .76rem; color: var(--ink-soft); margin-top: 6px; }
 .cmp-key span { display: inline-flex; align-items: center; gap: 6px; }

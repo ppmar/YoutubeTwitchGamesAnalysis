@@ -6,7 +6,10 @@
 
   var NB = " "; // narrow no-break space, the French thousands separator
   var LEADERS = ["fortnite", "call-of-duty-warzone", "apex-legends", "pubg"];
-  var SERIES_INK = ["--signal", "--amber", "--ink", "--ink-soft", "--signal-dim"];
+  // Four validated hues for the leaders; the genre aggregate is the neutral,
+  // drawn dashed so it never has to be told apart by colour alone.
+  var SERIES_INK = ["--s1", "--s2", "--s3", "--s4", "--s-other"];
+  var SERIES_DASH = [null, null, null, null, "5 4"];
   var ROLES = {leader: "leader", precursor: "précurseur", follower: "suiveur", mode: "mode"};
   var MONTHS = ["janv.", "févr.", "mars", "avril", "mai", "juin",
                 "juil.", "août", "sept.", "oct.", "nov.", "déc."];
@@ -150,6 +153,10 @@
       var sp = el("span");
       var sw = el("i");
       sw.style.background = ink(SERIES_INK[i % SERIES_INK.length]);
+      if (SERIES_DASH[i % SERIES_DASH.length]) {
+        sw.style.background = "none";
+        sw.style.borderTop = "2px dashed " + ink(SERIES_INK[i % SERIES_INK.length]);
+      }
       sp.append(sw, el("span", null, s.name));
       return sp;
     }));
@@ -202,7 +209,8 @@
           return xOf(data.months.indexOf(p.month)) + "," + yOf(p.value);
         }).join(" L");
         var path = svg("path", {d: "M" + d, fill: "none", "stroke-width": 2,
-          "stroke-linejoin": "round", "stroke-linecap": "round"});
+          "stroke-linejoin": "round", "stroke-linecap": "round",
+          "stroke-dasharray": SERIES_DASH[si % SERIES_DASH.length] || undefined});
         path.style.stroke = ink(SERIES_INK[si % SERIES_INK.length]);
         s.append(path);
 
@@ -379,10 +387,10 @@
         path.style.stroke = ink(colour);
         s.append(path);
       }
-      trace(tw, "--amber", true);
-      trace(yt, "--signal", false);
+      trace(tw, "--s2", true);
+      trace(yt, "--s1", false);
 
-      [[twPeak, "--amber"], [ytPeak, "--signal"]].forEach(function (pair) {
+      [[twPeak, "--s2"], [ytPeak, "--s1"]].forEach(function (pair) {
         if (!pair[0]) return;
         var dot = svg("circle", {cx: xOf(pair[0]), cy: yOf(100), r: 3.2});
         dot.style.fill = ink(pair[1]);
@@ -392,7 +400,7 @@
       card.append(s);
 
       var key = el("div", "cmp-key");
-      [["--signal", "attention YouTube"], ["--amber", "heures Twitch"]].forEach(function (k) {
+      [["--s1", "attention YouTube"], ["--s2", "heures Twitch"]].forEach(function (k) {
         var sp = el("span");
         var sw = el("i");
         sw.style.background = ink(k[0]);
