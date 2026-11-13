@@ -271,7 +271,26 @@ def build_attention(
     calibrated: Annotated[bool, typer.Option("--calibrated/--no-calibrated")] = False,
 ) -> None:
     """Compute the monthly attention score per game (SPEC section 6)."""
-    _todo("build-attention", 5)
+    from ytcollector import attention as attention_module
+    from ytcollector.db import session_scope
+
+    with session_scope() as session:
+        rows = attention_module.build(session, study, calibrated=calibrated)
+        report = attention_module.validation_report(session)
+
+    typer.echo(f"attention: {rows} game-months ({'calibrated' if calibrated else 'r = 1'})")
+    if report.get("observations", 0) >= 2:
+        typer.echo(
+            f"validation: {report['observations']} snapshot deltas, "
+            f"median relative error {report['median_relative_error']:.2%}"
+            + (
+                f", rank correlation {report['rank_correlation']:.3f}"
+                if "rank_correlation" in report
+                else ""
+            )
+        )
+    else:
+        typer.echo("validation: not enough weekly snapshots yet (need 4+)")
 
 
 @app.command()
