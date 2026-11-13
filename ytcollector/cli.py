@@ -238,7 +238,23 @@ def channel_panel(
     dry_run: DryRun = False,
 ) -> None:
     """Step 5 (phase 2): collect uploads of the fixed channel panel."""
-    _todo("channel-panel", 7)
+    from ytcollector.stages import panel as panel_stage
+
+    _configure_logging()
+    scope, session, client, _ = _runtime(study)
+    try:
+        result = panel_stage.run(
+            session, client, study, min_subscribers=min_subscribers, dry_run=dry_run
+        )
+        firsts = panel_stage.first_videos_per_channel(session, study)
+    finally:
+        scope.__exit__(None, None, None)
+
+    typer.echo(
+        f"channel-panel: {result.processed} channels, {result.items} new game links"
+        + (" (quota exhausted)" if result.stopped_on_quota else "")
+    )
+    typer.echo(f"first-video records: {len(firsts)} (game, channel) pairs")
 
 
 @app.command("refresh-stats")
