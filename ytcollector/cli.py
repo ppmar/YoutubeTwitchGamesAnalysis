@@ -44,6 +44,20 @@ def _runtime(study: str):
     return scope, session, client, settings
 
 
+def _configure_logging() -> None:
+    """One line per event on stdout, and never a full request URL (it holds the key)."""
+    import logging
+    import sys
+
+    logging.basicConfig(
+        level=logging.INFO,
+        stream=sys.stdout,
+        format="%(asctime)s %(levelname)s %(name)s %(message)s",
+    )
+    # The client logs parameters at DEBUG; keep that off in production.
+    logging.getLogger("ytcollector.client").setLevel(logging.INFO)
+
+
 def _ids(value: str | None) -> list[str] | None:
     return [v.strip() for v in value.split(",") if v.strip()] if value else None
 
@@ -369,7 +383,40 @@ def status(study: Study = DEFAULT_STUDY) -> None:
 @app.command()
 def daily(study: Study = DEFAULT_STUDY, dry_run: DryRun = False) -> None:
     """Full daily run, launched by the Railway cron service."""
-    _todo("daily", 6)
+    from ytcollector import daily as daily_module
+    from ytcollector.config import load_settings, load_study
+    from ytcollector.db import LockNotAcquired, execution_lock
+
+    _configure_logging()
+
+    # A deploy restarts the cron service, so a freshly deployed collector would
+    # start spending quota on its own. YTC_DRY_RUN lets the service be deployed
+    # and verified before it is allowed to collect for real.
+    if os.environ.get("YTC_DRY_RUN", "").lower() in {"1", "true", "yes"}:
+        dry_run = True
+        typer.echo("daily: YTC_DRY_RUN is set, no request will be sent")
+
+    config = load_study(study)
+    settings = load_settings()
+
+    scope, session, client, _ = _runtime(study)
+    try:
+        with execution_lock(session):
+            summary = daily_module.run(session, client, config, settings, dry_run=dry_run)
+    except LockNotAcquired:
+        # Another run is already spending the quota. Nothing to do, and this is
+        # not an error: the cron must still exit cleanly.
+        typer.echo("daily: another run holds the lock, exiting")
+        return
+    finally:
+        scope.__exit__(None, None, None)
+
+    typer.echo(summary.as_line())
+    typer.echo(
+        f"quota {summary.quota['quota_date']} (Pacific): "
+        f"search {summary.quota['search_remaining']} left, "
+        f"units {summary.quota['units_remaining']} left"
+    )
 
 
 if __name__ == "__main__":
