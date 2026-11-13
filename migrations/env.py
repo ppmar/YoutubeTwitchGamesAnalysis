@@ -17,8 +17,9 @@ def _database_url() -> str:
     return url
 
 
-# Models land in milestone 2; autogenerate stays off until then.
-target_metadata = None
+from ytcollector.models import Base
+
+target_metadata = Base.metadata
 
 
 def run_migrations_offline() -> None:
