@@ -9,7 +9,7 @@ from datetime import UTC, datetime
 
 import pytest
 import responses
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from ytcollector.client import API_ROOT, YouTubeClient
 from ytcollector.models import Comment, Game, GameVideo, VideoSnapshot
@@ -261,3 +261,78 @@ class TestMonthlyCounts:
         stage.run(seeded, client, "s")  # type: ignore[arg-type]
 
         assert len(list(seeded.scalars(select(Comment)))) == 1  # type: ignore[attr-defined]
+
+
+class TestMemoryAndQueries:
+    """Regression: the container was killed partway through a popular video.
+
+    Storing each comment with `session.merge` issued one SELECT per row and kept
+    every object in the identity map, so memory grew with the comment count until
+    the process died. Pages are now bulk-inserted and released.
+    """
+
+    @responses.activate
+    def test_the_session_does_not_grow_with_the_comment_count(
+        self, seeded: object, client: YouTubeClient
+    ) -> None:
+        add_video(seeded, "v1")
+        seeded.commit()  # type: ignore[attr-defined]
+        for page_index in range(5):
+            items = [
+                thread(f"c{page_index}-{i}", "2020-02-01T00:00:00Z") for i in range(100)
+            ]
+            responses.add(responses.GET, f"{API_ROOT}/commentThreads",
+                          json=page(items, "NEXT" if page_index < 4 else None))
+
+        stage.run(seeded, client, "s")  # type: ignore[arg-type]
+
+        assert seeded.scalar(  # type: ignore[attr-defined]
+            select(func.count()).select_from(Comment)
+        ) == 500
+        # 500 rows stored, but nothing like 500 objects kept around.
+        assert len(seeded.identity_map) < 50  # type: ignore[attr-defined]
+
+    @responses.activate
+    def test_a_page_is_one_statement_not_one_per_comment(
+        self, seeded: object, client: YouTubeClient
+    ) -> None:
+        from sqlalchemy import event
+
+        add_video(seeded, "v1")
+        seeded.commit()  # type: ignore[attr-defined]
+        responses.add(responses.GET, f"{API_ROOT}/commentThreads", json=page(
+            [thread(f"c{i}", "2020-02-01T00:00:00Z") for i in range(100)]))
+
+        statements: list[str] = []
+
+        def record(conn, cursor, statement, parameters, context, executemany):  # type: ignore[no-untyped-def]
+            if "comments" in statement.lower():
+                statements.append(statement)
+
+        engine = seeded.get_bind()  # type: ignore[attr-defined]
+        event.listen(engine, "before_cursor_execute", record)
+        try:
+            stage.run(seeded, client, "s")  # type: ignore[arg-type]
+        finally:
+            event.remove(engine, "before_cursor_execute", record)
+
+        inserts = [s for s in statements if s.lstrip().upper().startswith("INSERT")]
+        assert len(inserts) == 1, f"expected one bulk insert, got {len(inserts)}"
+
+    @responses.activate
+    def test_repeated_ids_inside_one_page_are_stored_once(
+        self, seeded: object, client: YouTubeClient
+    ) -> None:
+        add_video(seeded, "v1")
+        seeded.commit()  # type: ignore[attr-defined]
+        responses.add(responses.GET, f"{API_ROOT}/commentThreads", json=page([
+            thread("same", "2020-02-01T00:00:00Z"),
+            thread("same", "2020-02-01T00:00:00Z"),
+            thread("other", "2020-03-01T00:00:00Z"),
+        ]))
+
+        stage.run(seeded, client, "s")  # type: ignore[arg-type]
+
+        assert seeded.scalar(  # type: ignore[attr-defined]
+            select(func.count()).select_from(Comment)
+        ) == 2

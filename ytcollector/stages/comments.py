@@ -18,8 +18,9 @@ from __future__ import annotations
 import hashlib
 import logging
 from datetime import UTC, datetime
+from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import func, insert, select
 from sqlalchemy.orm import Session
 
 from ytcollector.client import ApiError, QuotaExceededError, YouTubeClient
@@ -101,24 +102,59 @@ def enqueue(queue: TaskQueue, videos: list[tuple[str, str, int]]) -> int:
 
 
 def _store_page(session: Session, video_id: str, response: dict) -> int:
-    """Persist one page of threads. Timestamps only."""
-    stored = 0
+    """Persist one page of threads. Timestamps only.
+
+    Written as one bulk insert that ignores duplicates, never a merge per row: a
+    popular video carries tens of thousands of comments, and merging each one
+    would issue a SELECT apiece and keep every object in the session until the
+    process ran out of memory.
+    """
+    now = datetime.now(UTC)
+    rows = []
     for item in response.get("items") or []:
         top = ((item.get("snippet") or {}).get("topLevelComment") or {}).get("snippet") or {}
         published = _parse_time(top.get("publishedAt"))
         if published is None:
             continue
-        session.merge(
-            Comment(
-                video_id=video_id,
-                comment_id_hash=hash_comment_id(str(item.get("id"))),
-                comment_published_at=published,
-                like_count=top.get("likeCount"),
-                reply_count=(item.get("snippet") or {}).get("totalReplyCount"),
-            )
+        rows.append(
+            {
+                "video_id": video_id,
+                "comment_id_hash": hash_comment_id(str(item.get("id"))),
+                "comment_published_at": published,
+                "like_count": top.get("likeCount"),
+                "reply_count": (item.get("snippet") or {}).get("totalReplyCount"),
+                "collected_at": now,
+            }
         )
-        stored += 1
-    return stored
+    if not rows:
+        return 0
+
+    # Deduplicate inside the page too: a repeated id would break the insert.
+    unique: dict[tuple[str, str], dict] = {
+        (row["video_id"], row["comment_id_hash"]): row for row in rows
+    }
+    session.execute(_insert_ignoring_duplicates(session), list(unique.values()))
+    return len(unique)
+
+
+def _insert_ignoring_duplicates(session: Session) -> Any:
+    """An INSERT that skips rows already stored, for the session's dialect."""
+    dialect = session.get_bind().dialect.name
+    if dialect == "postgresql":
+        from sqlalchemy.dialects.postgresql import insert as pg_insert
+
+        statement = pg_insert(Comment)
+        return statement.on_conflict_do_nothing(
+            index_elements=["video_id", "comment_id_hash"]
+        )
+    if dialect == "sqlite":
+        from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+
+        statement = sqlite_insert(Comment)
+        return statement.on_conflict_do_nothing(
+            index_elements=["video_id", "comment_id_hash"]
+        )
+    return insert(Comment)
 
 
 def _mark(session: Session, video_id: str, field: str) -> None:
@@ -162,6 +198,10 @@ def collect_video(
             raise
 
         stored += _store_page(session, video_id, response)
+        # Commit and let go of the page: holding a whole video's comments in the
+        # session is what made the container run out of memory.
+        session.commit()
+        session.expunge_all()
         page_token = response.get("nextPageToken")
         if not page_token:
             return stored, None, "complete"
