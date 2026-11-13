@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 
 from ytcollector.client import QuotaExceededError, YouTubeClient
 from ytcollector.config import CONFIG_DIR, read_yaml
-from ytcollector.derive import matches_terms
+from ytcollector.derive import match_game
 from ytcollector.models import ChannelSnapshot, Game, GameVideo, VideoSnapshot
 from ytcollector.quota import QuotaExhausted
 from ytcollector.stages.search import StageResult
@@ -110,10 +110,11 @@ def attach_to_games(session: Session, study: str, video_ids: list[str]) -> int:
     linked = 0
     for video_id, snap in snapshots.items():
         for game in games:
-            if not matches_terms(
-                game.match_terms or [], title=snap.title, tags=snap.tags,
-                description=snap.description,
-            ):
+            matched, reason = match_game(
+                game.match_terms or [], game.exclude_terms or [],
+                title=snap.title, tags=snap.tags, description=snap.description,
+            )
+            if not matched:
                 continue
             period = (
                 snap.published_at.strftime("%Y-%m-01")
@@ -128,6 +129,7 @@ def attach_to_games(session: Session, study: str, video_ids: list[str]) -> int:
                     GameVideo(
                         study=study, game_id=game.game_id, video_id=video_id,
                         period_start=period, source="panel",
+                        title_match=True, match_reason=reason,
                     )
                 )
                 linked += 1
@@ -172,7 +174,7 @@ def first_videos_per_channel(session: Session, study: str) -> list[FirstVideo]:
         )
         .where(
             GameVideo.study == study,
-            VideoSnapshot.title_match.is_(True),
+            GameVideo.title_match.is_(True),
             VideoSnapshot.published_at.isnot(None),
         )
         .group_by(GameVideo.game_id, VideoSnapshot.channel_id)
@@ -192,7 +194,7 @@ def monthly_counts_per_game(session: Session, study: str) -> dict[tuple[str, str
         .where(
             GameVideo.study == study,
             GameVideo.source == "panel",
-            VideoSnapshot.title_match.is_(True),
+            GameVideo.title_match.is_(True),
             VideoSnapshot.published_at.isnot(None),
         )
     ).all()

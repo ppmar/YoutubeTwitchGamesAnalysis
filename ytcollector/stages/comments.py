@@ -62,7 +62,7 @@ def eligible_videos(
         .where(
             VideoSnapshot.collected_at == newest.c.collected_at,
             GameVideo.study == study,
-            VideoSnapshot.title_match.is_(True),
+            GameVideo.title_match.is_(True),
             VideoSnapshot.comment_count >= min_comments,
             # Collection state lives on the video, never on a snapshot.
             VideoSnapshot.video_id.notin_(

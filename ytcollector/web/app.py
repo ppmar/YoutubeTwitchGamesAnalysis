@@ -110,10 +110,11 @@ def collect_state(session: Session, study: str) -> dict[str, Any]:
     distinct_videos = int(
         session.scalar(select(func.count(func.distinct(VideoSnapshot.video_id)))) or 0
     )
+    # Matching is per (game, video) pair, so a video counts as matched once.
     matched = int(
         session.scalar(
-            select(func.count(func.distinct(VideoSnapshot.video_id))).where(
-                VideoSnapshot.title_match.is_(True)
+            select(func.count(func.distinct(GameVideo.video_id))).where(
+                GameVideo.study == study, GameVideo.title_match.is_(True)
             )
         )
         or 0
@@ -214,8 +215,11 @@ def collect_state(session: Session, study: str) -> dict[str, Any]:
             ),
             "eligibleForComments": int(
                 session.scalar(
-                    select(func.count(func.distinct(VideoSnapshot.video_id))).where(
-                        VideoSnapshot.title_match.is_(True),
+                    select(func.count(func.distinct(GameVideo.video_id)))
+                    .join(VideoSnapshot, VideoSnapshot.video_id == GameVideo.video_id)
+                    .where(
+                        GameVideo.study == study,
+                        GameVideo.title_match.is_(True),
                         VideoSnapshot.comment_count >= 30,
                     )
                 )

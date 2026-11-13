@@ -49,7 +49,6 @@ def latest_video_snapshots(session: Session) -> pd.DataFrame:
                 "comment_count": r.comment_count,
                 "is_short_proxy": r.is_short_proxy,
                 "was_live": r.was_live,
-                "title_match": r.title_match,
                 "video_type": r.video_type,
             }
             for r in rows
@@ -78,13 +77,16 @@ def latest_channel_snapshots(session: Session) -> pd.DataFrame:
     )
 
 
-def game_video_links(session: Session, study: str) -> pd.DataFrame:
-    """Distinct (game, video) pairs: a video found in several months counts once."""
-    rows = session.execute(
-        select(GameVideo.game_id, GameVideo.video_id)
-        .where(GameVideo.study == study)
-        .distinct()
-    ).all()
+def game_video_links(session: Session, study: str, matching_only: bool = True) -> pd.DataFrame:
+    """Distinct (game, video) pairs: a video found in several months counts once.
+
+    ``matching_only`` keeps the pairs where the video is about that game, which is
+    decided per pair rather than per snapshot (SPEC_FIXES 1.1).
+    """
+    query = select(GameVideo.game_id, GameVideo.video_id).where(GameVideo.study == study)
+    if matching_only:
+        query = query.where(GameVideo.title_match.is_(True))
+    rows = session.execute(query.distinct()).all()
     return pd.DataFrame(rows, columns=["game_id", "video_id"])
 
 
@@ -137,7 +139,7 @@ def build_game_month(session: Session, study: str) -> pd.DataFrame:
     if videos.empty:
         return pd.DataFrame()
 
-    videos = videos[videos["title_match"].fillna(False)]
+    # Matching is applied through the links, not on the snapshot.
     videos = videos[videos["published_at"].notna()]
     if videos.empty:
         return pd.DataFrame()

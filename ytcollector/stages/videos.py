@@ -18,7 +18,7 @@ from ytcollector.derive import (
     SHORT_MAX_SECONDS,
     classify_video_type,
     duration_to_seconds,
-    matches_terms,
+    match_game,
     parse_statistic,
 )
 from ytcollector.models import Game, GameVideo, VideoSnapshot
@@ -40,21 +40,56 @@ def _parse_time(value: str | None) -> datetime | None:
         return None
 
 
-def match_terms_by_video(session: Session, study: str) -> dict[str, list[str]]:
-    """Map each video to the match terms of every game it was found for.
+def game_terms(session: Session, study: str) -> dict[str, tuple[list[str], list[str]]]:
+    """Match and exclude terms per game id."""
+    return {
+        row.game_id: (row.match_terms or [], row.exclude_terms or [])
+        for row in session.scalars(select(Game).where(Game.study == study))
+    }
 
-    A video can be returned by several games' queries; it counts as a match if it
-    matches any of them.
+
+def apply_matches(session: Session, study: str, video_ids: list[str]) -> int:
+    """Decide, for each (game, video) pair, whether the video is about that game.
+
+    Held per pair rather than on the snapshot: computing one flag from the union
+    of every linked game's terms made a single video count for two games at once
+    (SPEC_FIXES 1.1).
     """
-    rows = session.execute(
-        select(GameVideo.video_id, Game.match_terms)
-        .join(Game, (Game.study == GameVideo.study) & (Game.game_id == GameVideo.game_id))
-        .where(GameVideo.study == study)
-    ).all()
-    terms: dict[str, list[str]] = {}
-    for video_id, match_terms in rows:
-        terms.setdefault(video_id, []).extend(match_terms or [])
-    return terms
+    if not video_ids:
+        return 0
+
+    terms = game_terms(session, study)
+    snapshots = {
+        snap.video_id: snap
+        for snap in session.scalars(
+            select(VideoSnapshot)
+            .where(VideoSnapshot.video_id.in_(video_ids))
+            .order_by(VideoSnapshot.collected_at)
+        )
+    }
+    links = list(
+        session.scalars(
+            select(GameVideo).where(
+                GameVideo.study == study, GameVideo.video_id.in_(video_ids)
+            )
+        )
+    )
+
+    decided = 0
+    for link in links:
+        snap = snapshots.get(link.video_id)
+        if snap is None:
+            continue
+        match_terms, exclude_terms = terms.get(link.game_id, ([], []))
+        matched, reason = match_game(
+            match_terms, exclude_terms,
+            title=snap.title, tags=snap.tags, description=snap.description,
+        )
+        link.title_match = matched
+        link.match_reason = reason
+        decided += 1
+    session.flush()
+    return decided
 
 
 def pending_video_ids(session: Session, study: str, stale_before: datetime | None = None) -> list[str]:
@@ -66,7 +101,7 @@ def pending_video_ids(session: Session, study: str, stale_before: datetime | Non
     return list(session.scalars(known.where(GameVideo.video_id.notin_(snapshotted))))
 
 
-def build_snapshot(item: dict, terms: list[str], collected_at: datetime) -> VideoSnapshot:
+def build_snapshot(item: dict, collected_at: datetime) -> VideoSnapshot:
     """Turn one videos.list item into a snapshot row."""
     snippet = item.get("snippet") or {}
     statistics = item.get("statistics") or {}
@@ -101,8 +136,7 @@ def build_snapshot(item: dict, terms: list[str], collected_at: datetime) -> Vide
         made_for_kids=status.get("madeForKids"),
         is_short_proxy=None if duration is None else duration <= SHORT_MAX_SECONDS,
         was_live=bool(live),
-        # The full description is used for matching, only the prefix is stored.
-        title_match=matches_terms(terms, title=title, tags=tags, description=description),
+        # Matching happens per (game, video) pair in `apply_matches`.
         video_type=classify_video_type(title),
     )
 
@@ -120,7 +154,6 @@ def run(
     if not ids:
         return result
 
-    terms_by_video = match_terms_by_video(session, study)
     collected_at = datetime.now(UTC)
 
     for start in range(0, len(ids), BATCH_SIZE):
@@ -140,9 +173,13 @@ def run(
             continue
 
         result.calls += 1
+        seen: list[str] = []
         for item in response.get("items") or []:
-            session.merge(build_snapshot(item, terms_by_video.get(item.get("id"), []), collected_at))
+            session.merge(build_snapshot(item, collected_at))
+            seen.append(str(item.get("id")))
             result.items += 1
+        session.flush()
+        apply_matches(session, study, seen)
         result.processed += len(batch)
         session.commit()
 

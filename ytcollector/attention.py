@@ -301,9 +301,10 @@ def _video_rows(session: Session, study: str) -> list:
             & (VideoSnapshot.collected_at == newest.c.collected_at),
         )
         .where(
-            VideoSnapshot.title_match.is_(True),
             VideoSnapshot.video_id.in_(
-                select(GameVideo.video_id).where(GameVideo.study == study)
+                select(GameVideo.video_id).where(
+                    GameVideo.study == study, GameVideo.title_match.is_(True)
+                )
             ),
         )
     ).scalars().all()
@@ -384,9 +385,10 @@ def build(session: Session, study: str, calibrated: bool = False) -> int:
         return 0
 
     by_video = {c.video_id: c for c in curves}
+    # Only pairs where the video is about *that* game.
     links = session.execute(
         select(GameVideo.game_id, GameVideo.video_id)
-        .where(GameVideo.study == study)
+        .where(GameVideo.study == study, GameVideo.title_match.is_(True))
         .distinct()
     ).all()
 
