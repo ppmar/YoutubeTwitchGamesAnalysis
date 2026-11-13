@@ -141,9 +141,20 @@ def run(
             .limit(limit if limit is not None else 100_000)
         ).all()
         for task in pending:
-            logger.info(
+            logger.debug(
                 "would search %s %s", task.payload["game_id"], task.payload["period_start"]
             )
+        # One summary line: a line per slice would be 1600 lines of Railway logs.
+        by_game: dict[str, int] = {}
+        for task in pending:
+            game_id = task.payload["game_id"]
+            by_game[game_id] = by_game.get(game_id, 0) + 1
+        logger.info(
+            "would search %d slices across %d games (largest: %s)",
+            len(pending),
+            len(by_game),
+            ", ".join(f"{g}={n}" for g, n in sorted(by_game.items(), key=lambda kv: -kv[1])[:3]),
+        )
         result.processed = len(pending)
         return result
 
