@@ -437,5 +437,17 @@ def daily(study: Study = DEFAULT_STUDY, dry_run: DryRun = False) -> None:
     )
 
 
+@app.command()
+def serve(
+    host: Annotated[str, typer.Option("--host")] = "0.0.0.0",
+    port: Annotated[int | None, typer.Option("--port")] = None,
+) -> None:
+    """Serve the read-only web view. Railway supplies the port in PORT."""
+    from ytcollector.web.app import serve as run_server
+
+    _configure_logging()
+    run_server(host=host, port=port)
+
+
 if __name__ == "__main__":
     app()

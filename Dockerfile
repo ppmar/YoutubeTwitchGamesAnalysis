@@ -20,6 +20,8 @@ COPY migrations/ ./migrations/
 RUN useradd --create-home --uid 10001 ytc && chown -R ytc:ytc /app
 USER ytc
 
-# The container runs one collection and exits. A process that never returns
-# blocks every following Railway cron run.
-CMD ["sh", "-c", "alembic upgrade head && ytc daily"]
+# One image, two roles, picked by a variable so neither service needs its own
+# build settings: the cron service leaves YTC_ROLE unset and runs one collection
+# then exits (a process that never returns blocks every following cron run); the
+# web service sets YTC_ROLE=serve and stays up.
+CMD ["sh", "-c", "alembic upgrade head && ytc ${YTC_ROLE:-daily}"]
