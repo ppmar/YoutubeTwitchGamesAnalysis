@@ -30,7 +30,13 @@ from datetime import UTC, datetime
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from ytcollector.models import Comment, GameMonth, GameVideo, VideoSnapshot
+from ytcollector.models import (
+    Comment,
+    GameMonth,
+    GameVideo,
+    VideoCommentState,
+    VideoSnapshot,
+)
 from ytcollector.planning import month_range, shift_month
 
 logger = logging.getLogger("ytcollector.attention")
@@ -319,6 +325,9 @@ def build_curves(
     """Spread every matched video's views over months. Returns curves and methods."""
     videos = _video_rows(session, study)
     comments = _comment_counts(session)
+    states = {
+        state.video_id: state for state in session.scalars(select(VideoCommentState))
+    }
     rate = calibrate_rate(session) if calibrated else constant_rate
 
     curves: list[VideoCurve] = []
@@ -330,8 +339,9 @@ def build_curves(
             continue
         published = month_of(video.published_at)
         counts = comments.get(video.video_id, {})
+        state = states.get(video.video_id)
         usable = (
-            not video.comments_truncated
+            not (state and (state.truncated or state.disabled))
             and sum(counts.values()) >= MIN_COMMENTS_FOR_METHOD_A
         )
         if usable:
@@ -394,10 +404,14 @@ def build(session: Session, study: str, calibrated: bool = False) -> int:
             if curve.method == METHOD_A:
                 from_a[(game_id, month)] += value
 
-    comment_counts = session.execute(
-        select(Comment.video_id, func.count()).group_by(Comment.video_id)
-    ).all()
-    comments_by_video = dict(comment_counts)
+    # Comments dated in each month, per video. The column used to carry the
+    # game's total on every row, which told a reader nothing about the month
+    # (SPEC_CALIBRATION 3.3).
+    dated_by_video_month: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+    for video_id, published in session.execute(
+        select(Comment.video_id, Comment.comment_published_at)
+    ).all():
+        dated_by_video_month[video_id][month_of(published)] += 1
 
     peaks: dict[str, float] = defaultdict(float)
     for (game_id, _), value in raw.items():
@@ -415,7 +429,7 @@ def build(session: Session, study: str, calibrated: bool = False) -> int:
         row.attention_index = 100.0 * value / peaks[game_id] if peaks[game_id] else 0.0
         row.share_method_a = (from_a[(game_id, month)] / value) if value else 0.0
         row.n_comments_dated = sum(
-            comments_by_video.get(v, 0) for v in videos_per_game[game_id]
+            dated_by_video_month.get(v, {}).get(month, 0) for v in videos_per_game[game_id]
         )
         row.sample_basis = len(videos_per_game[game_id])
         written += 1

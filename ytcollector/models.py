@@ -226,9 +226,8 @@ class VideoSnapshot(Base):
     title_match: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     video_type: Mapped[str | None] = mapped_column(String(16), nullable=True)
 
-    # Comment collection state.
-    comments_disabled: Mapped[bool] = mapped_column(Boolean, default=False)
-    comments_truncated: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Comment collection state lives in `video_comment_state`, keyed by video:
+    # a snapshot column would be reset by the next refresh.
 
 
 class ChannelSnapshot(Base):
@@ -308,3 +307,43 @@ class GameMonth(Base):
     trailer_views_max: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
 
     built_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class VideoCommentState(Base):
+    """How far the comment collection got for one video (SPEC_CALIBRATION 3.1).
+
+    This used to be two columns on ``video_snapshots``, which was wrong: every
+    ``refresh-stats`` writes a *new* snapshot, with those columns back at their
+    default. A truncated video then looked complete again, and its history —
+    amputated at exactly the early months that matter — went back to method A.
+
+    Collection state belongs to the video, not to one observation of it.
+    """
+
+    __tablename__ = "video_comment_state"
+
+    video_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+
+    # Comments are off for this video; there is nothing to collect.
+    disabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    # The per-video cap was reached, so the oldest comments are missing.
+    truncated: Mapped[bool] = mapped_column(Boolean, default=False)
+    # The whole history was walked to its end.
+    complete: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    n_stored: Mapped[int] = mapped_column(Integer, default=0)
+    oldest_comment_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    newest_comment_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    last_fetched_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<VideoCommentState {self.video_id} stored={self.n_stored} "
+            f"complete={self.complete} truncated={self.truncated}>"
+        )

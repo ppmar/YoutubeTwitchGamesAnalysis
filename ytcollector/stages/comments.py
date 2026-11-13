@@ -24,7 +24,7 @@ from sqlalchemy import func, insert, select
 from sqlalchemy.orm import Session
 
 from ytcollector.client import ApiError, QuotaExceededError, YouTubeClient
-from ytcollector.models import Comment, GameVideo, VideoSnapshot
+from ytcollector.models import Comment, GameVideo, VideoCommentState, VideoSnapshot
 from ytcollector.quota import QuotaExhausted
 from ytcollector.stages.search import StageResult
 from ytcollector.stages.videos import _parse_time
@@ -63,8 +63,11 @@ def eligible_videos(
             VideoSnapshot.collected_at == newest.c.collected_at,
             GameVideo.study == study,
             VideoSnapshot.title_match.is_(True),
-            VideoSnapshot.comments_disabled.is_(False),
             VideoSnapshot.comment_count >= min_comments,
+            # Collection state lives on the video, never on a snapshot.
+            VideoSnapshot.video_id.notin_(
+                select(VideoCommentState.video_id).where(VideoCommentState.disabled.is_(True))
+            ),
         )
         .distinct()
     ).all()
@@ -157,16 +160,46 @@ def _insert_ignoring_duplicates(session: Session) -> Any:
     return insert(Comment)
 
 
-def _mark(session: Session, video_id: str, field: str) -> None:
-    """Flag the video's latest snapshot (comments disabled, or truncated)."""
-    snapshot = session.scalars(
-        select(VideoSnapshot)
-        .where(VideoSnapshot.video_id == video_id)
-        .order_by(VideoSnapshot.collected_at.desc())
-        .limit(1)
-    ).first()
-    if snapshot is not None:
-        setattr(snapshot, field, True)
+def mark_state(
+    session: Session,
+    video_id: str,
+    *,
+    disabled: bool | None = None,
+    truncated: bool | None = None,
+    complete: bool | None = None,
+    stored: int | None = None,
+) -> VideoCommentState:
+    """Record how far the comment collection got, on the video itself.
+
+    Kept out of ``video_snapshots`` on purpose: a later snapshot would reset it
+    and silently hand an amputated history back to method A
+    (SPEC_CALIBRATION 3.1).
+    """
+    state = session.get(VideoCommentState, video_id)
+    if state is None:
+        state = VideoCommentState(video_id=video_id)
+        session.add(state)
+
+    if disabled is not None:
+        state.disabled = disabled
+    if truncated is not None:
+        state.truncated = truncated
+        if truncated:
+            # A truncated history is not a complete one, whatever came before.
+            state.complete = False
+    if complete is not None:
+        state.complete = complete
+    if stored:
+        state.n_stored = (state.n_stored or 0) + stored
+
+    bounds = session.execute(
+        select(func.min(Comment.comment_published_at), func.max(Comment.comment_published_at))
+        .where(Comment.video_id == video_id)
+    ).one()
+    state.oldest_comment_at, state.newest_comment_at = bounds
+    state.last_fetched_at = datetime.now(UTC)
+    session.flush()
+    return state
 
 
 def collect_video(
@@ -193,7 +226,7 @@ def collect_video(
         except ApiError as exc:
             if exc.status == 403:
                 # Comments are off for this video: flag it and move on.
-                _mark(session, video_id, "comments_disabled")
+                mark_state(session, video_id, disabled=True)
                 return stored, None, "disabled"
             raise
 
@@ -204,11 +237,12 @@ def collect_video(
         session.expunge_all()
         page_token = response.get("nextPageToken")
         if not page_token:
+            mark_state(session, video_id, complete=True, stored=stored)
             return stored, None, "complete"
 
     # The cap was reached, so the earliest comments are missing. The video can no
     # longer carry method A and is handed to the decay kernel instead.
-    _mark(session, video_id, "comments_truncated")
+    mark_state(session, video_id, truncated=True, stored=stored)
     return stored, page_token, "truncated"
 
 

@@ -38,9 +38,13 @@ def add_video(
     session.add(VideoSnapshot(  # type: ignore[attr-defined]
         video_id=video_id, collected_at=collected_at, channel_id="UC1",
         published_at=at(published), view_count=views, comment_count=total,
-        title_match=True, comments_truncated=truncated, video_type=video_type,
-        is_short_proxy=is_short,
+        title_match=True, video_type=video_type, is_short_proxy=is_short,
     ))
+    if truncated:
+        # Collection state lives on the video now, not on the snapshot.
+        from ytcollector.stages.comments import mark_state
+
+        mark_state(session, video_id, truncated=True)
     for month, count in (comments or {}).items():
         for i in range(count):
             session.add(Comment(  # type: ignore[attr-defined]
@@ -198,6 +202,7 @@ class TestBuild:
         attention.build(game, "s")  # type: ignore[arg-type]
         row = game.scalar(select(GameMonth).where(GameMonth.month == 1))  # type: ignore[attr-defined]
         assert row.sample_basis == 2
+        # Comments dated in January, not the game's running total.
         assert row.n_comments_dated == 75
 
     def test_no_videos_writes_nothing(self, game: object) -> None:

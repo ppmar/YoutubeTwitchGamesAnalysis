@@ -12,7 +12,13 @@ import responses
 from sqlalchemy import func, select
 
 from ytcollector.client import API_ROOT, YouTubeClient
-from ytcollector.models import Comment, Game, GameVideo, VideoSnapshot
+from ytcollector.models import (
+    Comment,
+    Game,
+    GameVideo,
+    VideoCommentState,
+    VideoSnapshot,
+)
 from ytcollector.quota import QuotaLimits, QuotaTracker
 from ytcollector.stages import comments as stage
 from ytcollector.tasks import TaskQueue
@@ -164,8 +170,8 @@ class TestPagination:
         # 200 threads = 2 pages, then stop.
         stage.run(seeded, client, "s", max_threads_per_video=200)  # type: ignore[arg-type]
 
-        snap = seeded.scalar(select(VideoSnapshot))  # type: ignore[attr-defined]
-        assert snap.comments_truncated is True
+        state = seeded.get(VideoCommentState, "v1")  # type: ignore[attr-defined]
+        assert state.truncated is True
         assert len(responses.calls) == 2
 
     @responses.activate
@@ -205,7 +211,9 @@ class TestFailureModes:
 
         assert result.processed == 2
         assert result.errors == 0
-        flagged = [s for s in seeded.scalars(select(VideoSnapshot)) if s.comments_disabled]  # type: ignore[attr-defined]
+        flagged = [  # type: ignore[attr-defined]
+            st for st in seeded.scalars(select(VideoCommentState)) if st.disabled
+        ]
         assert len(flagged) == 1
 
     @responses.activate
