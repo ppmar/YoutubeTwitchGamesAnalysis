@@ -64,19 +64,25 @@
     </figure>
   </section>
 
-  <section class="band" aria-labelledby="h-attention">
-    <h2 id="h-attention">L'attention YouTube</h2>
-    <div data-attention-empty>
+  <section class="band" aria-labelledby="h-compare">
+    <h2 id="h-compare">YouTube contre Twitch, jeu par jeu</h2>
+    <p class="note">
+      Les deux signaux superposés, chacun ramené sur 0–100 par jeu : une seule échelle, car
+      ce qui compte n'est pas l'amplitude mais <b>l'écart entre les deux pics</b>. YouTube en
+      avance signale une demande qui précède l'audience ; en retard, une audience qui
+      entraîne les créateurs.
+    </p>
+    <div data-compare-empty>
       <p class="empty">
-        Rien à montrer tant que la collecte n'a pas tourné. L'indice d'attention répartit les
-        vues cumulées de chaque vidéo sur les mois où ses commentaires ont été écrits, puis
-        ramène chaque jeu sur 0–100.
+        Il manque le côté YouTube. L'indice d'attention répartit les vues cumulées de chaque
+        vidéo sur les mois où ses commentaires ont été écrits : sans collecte, il n'existe pas.
       </p>
-      <p class="note">Lancez <code>ytc daily</code> ou retirez <code>YTC_DRY_RUN</code> du service de collecte.</p>
+      <p class="note">
+        Retirez <code>YTC_DRY_RUN</code> du service de collecte, ou lancez <code>ytc daily</code>.
+        En attendant, le signal Twitch ci-dessus est complet.
+      </p>
     </div>
-    <figure class="plot" data-attention-plot hidden>
-      <div class="canvas" data-chart-attention></div>
-    </figure>
+    <div class="compare" data-compare hidden></div>
   </section>
 
   <section class="band" aria-labelledby="h-roster">

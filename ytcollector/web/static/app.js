@@ -265,42 +265,143 @@
     });
   }
 
-  /* ---- attention ------------------------------------------------------- */
+  /* ---- YouTube against Twitch, on one indexed scale --------------------- */
 
-  function renderAttention() {
+  function indexTo100(points) {
+    var max = 0, i;
+    for (i = 0; i < points.length; i++) if (points[i].value > max) max = points[i].value;
+    if (!max) return points.map(function (p) { return {month: p.month, value: 0}; });
+    return points.map(function (p) { return {month: p.month, value: 100 * p.value / max}; });
+  }
+
+  function peakMonth(points) {
+    var best = null, i;
+    for (i = 0; i < points.length; i++) {
+      if (!best || points[i].value > best.value) best = points[i];
+    }
+    return best ? best.month : null;
+  }
+
+  function monthsApart(a, b) {
+    return (parseInt(b.slice(0, 4), 10) * 12 + parseInt(b.slice(5, 7), 10)) -
+           (parseInt(a.slice(0, 4), 10) * 12 + parseInt(a.slice(5, 7), 10));
+  }
+
+  function renderCompare() {
     if (!state.attention.length) return;
-    $("[data-attention-empty]").hidden = true;
-    var plot = $("[data-attention-plot]");
-    plot.hidden = false;
+    document.querySelector("[data-compare-empty]").hidden = true;
+    var box = $("[data-compare]");
+    box.hidden = false;
 
-    var byGame = {};
-    state.attention.forEach(function (row) {
-      (byGame[row.game_id] = byGame[row.game_id] || []).push(row);
+    var twitchBy = {};
+    state.series.forEach(function (s) {
+      twitchBy[s.game_id] = s.points.map(function (pt) { return {month: pt[0], value: pt[1]}; });
     });
     var names = {};
     state.games.forEach(function (g) { names[g.id] = g.name; });
 
-    var box = $("[data-chart-attention]");
-    box.replaceChildren();
-    Object.keys(byGame).sort().forEach(function (id) {
-      var rows = byGame[id].slice().sort(function (a, b) {
-        return (a.year - b.year) || (a.month - b.month);
-      });
-      var W = 760, H = 64, pad = 4;
-      var fig = el("figure", "plot");
-      fig.style.margin = "0 0 18px";
-      fig.append(el("figcaption", "note", names[id] || id));
-      var s = svg("svg", {viewBox: "0 0 " + W + " " + H, role: "img",
-        "aria-label": "Indice d'attention mensuel pour " + (names[id] || id)});
-      var xOf = function (i) { return pad + (rows.length < 2 ? 0 : i * (W - 2 * pad) / (rows.length - 1)); };
-      var yOf = function (v) { return H - pad - (v / 100) * (H - 2 * pad); };
-      var d = rows.map(function (r, i) { return xOf(i) + "," + yOf(r.index || 0); }).join(" L");
-      var path = svg("path", {d: "M" + d, fill: "none", "stroke-width": 2});
-      path.style.stroke = ink("--signal");
-      s.append(path);
-      fig.append(s);
-      box.append(fig);
+    var ytBy = {};
+    state.attention.forEach(function (r) {
+      var month = r.year + "-" + String(r.month).padStart(2, "0");
+      (ytBy[r.game_id] = ytBy[r.game_id] || []).push({month: month, value: r.index || 0});
     });
+
+    var ids = Object.keys(ytBy).sort(function (a, b) {
+      return ytBy[b].length - ytBy[a].length;
+    });
+
+    box.replaceChildren.apply(box, ids.map(function (id) {
+      var yt = ytBy[id].slice().sort(function (a, b) { return a.month < b.month ? -1 : 1; });
+      var tw = indexTo100(twitchBy[id] || []);
+      var card = el("figure", "plot");
+      card.style.margin = "0";
+
+      var head = el("div", "cmp-head");
+      head.append(el("span", "cmp-name", names[id] || id));
+
+      var ytPeak = peakMonth(yt), twPeak = peakMonth(tw);
+      if (ytPeak && twPeak) {
+        var gap = monthsApart(ytPeak, twPeak);
+        var chip = el("span", "cmp-gap");
+        if (gap > 0) {
+          chip.dataset.lead = "youtube";
+          chip.textContent = "YouTube en avance de " + gap + " mois";
+        } else if (gap < 0) {
+          chip.dataset.lead = "twitch";
+          chip.textContent = "Twitch en avance de " + (-gap) + " mois";
+        } else {
+          chip.textContent = "pics simultanés";
+        }
+        head.append(chip);
+      }
+      card.append(head);
+
+      var sub = el("p", "cmp-sub");
+      sub.textContent = ytPeak && twPeak
+        ? "pic YouTube " + monthLabel(ytPeak) + " · pic Twitch " + monthLabel(twPeak)
+        : "pics indéterminés";
+      card.append(sub);
+
+      // One month axis for both signals, so the offset between them is readable.
+      var monthSet = {};
+      yt.concat(tw).forEach(function (p) { monthSet[p.month] = true; });
+      var months = Object.keys(monthSet).sort();
+
+      var W = 420, H = 130, m = {t: 8, r: 6, b: 20, l: 6};
+      var iw = W - m.l - m.r, ih = H - m.t - m.b;
+      var xOf = function (mo) {
+        var i = months.indexOf(mo);
+        return m.l + (months.length < 2 ? 0 : i * iw / (months.length - 1));
+      };
+      var yOf = function (v) { return m.t + ih - (v / 100) * ih; };
+
+      var s = svg("svg", {viewBox: "0 0 " + W + " " + H, role: "img",
+        "aria-label": (names[id] || id) +
+          " : attention YouTube et audience Twitch, chacune ramenée sur 0 à 100"});
+
+      var ax = svg("g", {class: "ax"});
+      ax.append(svg("line", {x1: m.l, x2: W - m.r, y1: m.t + ih, y2: m.t + ih, class: "base"}));
+      months.forEach(function (mo, i) {
+        if (mo.slice(5) !== "01") return;
+        if (months.length > 40 && i % 24 !== 0) return;
+        var tx = svg("text", {x: xOf(mo), y: H - 6, "text-anchor": "middle"});
+        tx.textContent = mo.slice(0, 4);
+        ax.append(tx);
+      });
+      s.append(ax);
+
+      function trace(points, colour, dashed) {
+        if (!points.length) return;
+        var d = points.map(function (p) { return xOf(p.month) + "," + yOf(p.value); }).join(" L");
+        var path = svg("path", {d: "M" + d, fill: "none", "stroke-width": 2,
+          "stroke-linejoin": "round", "stroke-linecap": "round",
+          "stroke-dasharray": dashed ? "3 3" : undefined});
+        path.style.stroke = ink(colour);
+        s.append(path);
+      }
+      trace(tw, "--amber", true);
+      trace(yt, "--signal", false);
+
+      [[twPeak, "--amber"], [ytPeak, "--signal"]].forEach(function (pair) {
+        if (!pair[0]) return;
+        var dot = svg("circle", {cx: xOf(pair[0]), cy: yOf(100), r: 3.2});
+        dot.style.fill = ink(pair[1]);
+        s.append(dot);
+      });
+
+      card.append(s);
+
+      var key = el("div", "cmp-key");
+      [["--signal", "attention YouTube"], ["--amber", "heures Twitch"]].forEach(function (k) {
+        var sp = el("span");
+        var sw = el("i");
+        sw.style.background = ink(k[0]);
+        sp.append(sw, el("span", null, k[1]));
+        key.append(sp);
+      });
+      card.append(key);
+      return card;
+    }));
   }
 
   /* ---- roster ---------------------------------------------------------- */
@@ -348,7 +449,7 @@
   renderReadout();
   tickReset();
   renderTwitch();
-  renderAttention();
+  renderCompare();
   renderRoster();
   renderFooter();
 })();

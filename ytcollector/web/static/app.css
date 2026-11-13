@@ -277,3 +277,22 @@ footer p { margin: 0 0 4px; max-width: var(--measure); }
 @media (prefers-reduced-motion: no-preference) {
   .cal-fill { transition: height 420ms cubic-bezier(.2,.7,.3,1); }
 }
+
+/* ---- lead/lag comparison ------------------------------------------------ */
+
+.compare {
+  display: grid; gap: 26px 34px;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+}
+.cmp-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 2px; }
+.cmp-name { font-weight: 500; }
+.cmp-gap {
+  font-size: .78rem; border: 1px solid var(--rule); padding: 0 6px;
+  color: var(--ink-soft); white-space: nowrap;
+}
+.cmp-gap[data-lead="youtube"] { border-color: var(--signal); color: var(--signal); }
+.cmp-gap[data-lead="twitch"] { border-color: var(--amber); color: var(--amber); }
+.cmp-sub { font-size: .78rem; color: var(--ink-faint); margin: 0 0 8px; }
+.cmp-key { display: flex; gap: 14px; font-size: .76rem; color: var(--ink-soft); margin-top: 6px; }
+.cmp-key span { display: inline-flex; align-items: center; gap: 6px; }
+.cmp-key i { width: 12px; height: 2px; flex: none; }
