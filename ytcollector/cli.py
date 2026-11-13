@@ -205,6 +205,7 @@ def comments(
     games: Games = None,
     min_comments: Annotated[int, typer.Option("--min-comments")] = 30,
     max_threads_per_video: Annotated[int, typer.Option("--max-threads-per-video")] = 50_000,
+    limit: Limit = None,
     dry_run: DryRun = False,
 ) -> None:
     """Step 4: collect comment timestamps (dates only, no author and no text)."""
@@ -220,6 +221,7 @@ def comments(
             max_threads_per_video=max_threads_per_video,
             games=_ids(games),
             reserve=int(settings.get("quota", {}).get("units_reserve", 1000)),
+            limit=limit,
             dry_run=dry_run,
         )
     finally:
