@@ -198,6 +198,21 @@ def collect_state(session: Session, study: str) -> dict[str, Any]:
                 session.scalar(select(func.count(func.distinct(ChannelSnapshot.channel_id)))) or 0
             ),
             "comments": _scalar(session, Comment.__table__),
+            # The share of videos whose comment history was collected is what
+            # decides whether the attention score means anything: without it,
+            # share_method_a cannot be read.
+            "videosWithComments": int(
+                session.scalar(select(func.count(func.distinct(Comment.video_id)))) or 0
+            ),
+            "eligibleForComments": int(
+                session.scalar(
+                    select(func.count(func.distinct(VideoSnapshot.video_id))).where(
+                        VideoSnapshot.title_match.is_(True),
+                        VideoSnapshot.comment_count >= 30,
+                    )
+                )
+                or 0
+            ),
         },
         "games": [
             {

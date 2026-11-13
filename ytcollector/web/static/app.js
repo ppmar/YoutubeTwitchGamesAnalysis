@@ -98,6 +98,12 @@
       : "aucune recherche lancée";
     $("[data-c-channels]").textContent = n(c.channels);
     $("[data-c-comments]").textContent = n(c.comments);
+    $("[data-c-withc]").textContent = n(c.videosWithComments);
+    $("[data-c-coverage]").textContent = c.eligibleForComments
+      ? "sur " + n(c.eligibleForComments) + " éligibles ("
+        + (100 * c.videosWithComments / c.eligibleForComments).toFixed(1).replace(".", ",")
+        + " %) — c'est cette part qui décide de la fiabilité du score"
+      : "aucune vidéo éligible pour l'instant";
     $("[data-roster-on]").textContent = n(c.games);
   }
 

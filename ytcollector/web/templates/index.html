@@ -47,6 +47,7 @@
         <tr><th scope="row">Vidéos découvertes</th><td data-c-videos>{{ state.counts.videos | fr }}</td><td class="hint" data-c-matched>{% if state.counts.videos %}{{ state.counts.matched | fr }} citent le jeu dans leur titre, tags ou description{% else %}aucune recherche lancée{% endif %}</td></tr>
         <tr><th scope="row">Chaînes</th><td data-c-channels>{{ state.counts.channels | fr }}</td><td class="hint">éditrices des vidéos trouvées</td></tr>
         <tr><th scope="row">Commentaires datés</th><td data-c-comments>{{ state.counts.comments | fr }}</td><td class="hint">horodatage seul, ni auteur ni texte</td></tr>
+        <tr><th scope="row">Vidéos avec leur historique</th><td data-c-withc>{{ state.counts.videosWithComments | fr }}</td><td class="hint" data-c-coverage>sur {{ state.counts.eligibleForComments | fr }} éligibles — c'est cette part qui décide de la fiabilité du score</td></tr>
       </tbody>
     </table>
   </section>
