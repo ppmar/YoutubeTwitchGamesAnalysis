@@ -19,6 +19,17 @@ cp .env.example .env     # puis renseigner YOUTUBE_API_KEY
 pytest
 ```
 
+## Tests
+
+```sh
+pytest
+```
+
+Aucun test n'appelle l'API YouTube : tout est mocké. Les tests qui portent sur du
+comportement propre à PostgreSQL (verrou d'exécution, exécutions concurrentes) sont
+**sautés** tant que `TEST_DATABASE_URL` n'est pas renseignée — voir
+[`docs/RAILWAY.md`](docs/RAILWAY.md) §10.
+
 ## Utilisation
 
 ```sh

@@ -113,6 +113,40 @@ public.
 Vider le champ **Cron Schedule** suffit. La base reste intacte et la collecte peut
 reprendre là où elle s'était arrêtée.
 
+
+## 10. Une seconde base pour les tests
+
+Certains tests portent sur du comportement propre à PostgreSQL — le verrou d'exécution
+(advisory lock) et deux exécutions concurrentes — que SQLite ne sait pas reproduire. Ils
+ont besoin d'un vrai serveur.
+
+**Ne jamais les pointer sur la base de collecte** : ils créent et détruisent des objets.
+
+1. Dans le même projet Railway : **New** → **Database** → **Add PostgreSQL**. Le renommer
+   `Postgres-test` pour ne pas le confondre avec l'autre.
+2. Service `Postgres-test` → onglet **Variables** → copier `DATABASE_PUBLIC_URL`.
+   C'est l'URL du proxy TCP (`…proxy.rlwy.net:PORT`), joignable depuis ta machine.
+   `DATABASE_URL` pointe sur `…railway.internal`, qui ne répond qu'à l'intérieur de
+   Railway : elle ne marchera pas en local.
+3. La poser en local dans `.env` :
+   ```
+   TEST_DATABASE_URL=postgresql+psycopg://postgres:…@…proxy.rlwy.net:12345/railway
+   ```
+   Remplacer le préfixe `postgresql://` donné par Railway par `postgresql+psycopg://`.
+4. Lancer la suite :
+   ```sh
+   pytest
+   ```
+
+Sans `TEST_DATABASE_URL`, les tests PostgreSQL sont **sautés** et le reste passe quand
+même. La suite refuse de démarrer si `TEST_DATABASE_URL` est égale à `DATABASE_URL`.
+
+Garde-fou supplémentaire : ces tests créent leurs tables dans un schéma jetable
+`test_<aléa>`, détruit à la fin. Même pointés par erreur sur la mauvaise base, ils ne
+touchent pas aux tables de collecte, qui vivent dans `public`.
+
+Ce service ne sert qu'aux tests : pas de cron, pas de variables à y ajouter.
+
 ---
 
 ## Comportements Railway à connaître
