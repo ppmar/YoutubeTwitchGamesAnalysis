@@ -22,6 +22,33 @@ DEFAULT_STUDY = os.environ.get("YTC_STUDY", "battle_royale")
 # Stages that put work on the task queue, in pipeline order.
 STAGE_KINDS = ("search", "videos", "channels", "comments", "panel")
 
+def _runtime(study: str):
+    """Open a session and build the client, tracker and settings the stages need."""
+    from ytcollector.client import YouTubeClient
+    from ytcollector.config import load_settings, youtube_api_key
+    from ytcollector.db import session_scope
+    from ytcollector.quota import QuotaLimits, QuotaTracker
+
+    settings = load_settings()
+    scope = session_scope()
+    session = scope.__enter__()
+    tracker = QuotaTracker(session, QuotaLimits.from_settings(settings))
+    client = YouTubeClient(
+        session=session,
+        tracker=tracker,
+        api_key=youtube_api_key(),
+        timeout=int(settings.get("http", {}).get("timeout_seconds", 30)),
+        max_retries=int(settings.get("http", {}).get("max_retries", 5)),
+        backoff_factor=float(settings.get("http", {}).get("backoff_factor", 2.0)),
+    )
+    return scope, session, client, settings
+
+
+def _ids(value: str | None) -> list[str] | None:
+    return [v.strip() for v in value.split(",") if v.strip()] if value else None
+
+
+
 Study = Annotated[str, typer.Option("--study", help="Study configuration to use.")]
 Games = Annotated[str | None, typer.Option("--games", help="Comma-separated game ids.")]
 Limit = Annotated[int | None, typer.Option("--limit", help="Stop after N tasks.")]
@@ -58,9 +85,42 @@ def plan(
     slicing: Annotated[str, typer.Option("--slicing")] = "month",
     games: Games = None,
     limit: Limit = None,
+    pages_per_slice: Annotated[int, typer.Option("--pages-per-slice")] = 1,
 ) -> None:
     """Show pending slices, cost per quota counter and the estimated number of days."""
-    _todo("plan", 3)
+    from ytcollector.config import load_settings, load_study
+    from ytcollector.db import session_scope
+    from ytcollector.planning import day_estimate
+    from ytcollector.quota import QuotaLimits
+    from ytcollector.stages import search as search_stage
+    from ytcollector.tasks import TaskQueue
+
+    config = load_study(study)
+    limits = QuotaLimits.from_settings(load_settings())
+
+    with session_scope() as session:
+        slices = search_stage.plan(
+            session, study, slicing=slicing,
+            before=config.months_before_first, after=config.months_after_last,
+            games=_ids(games),
+        )
+        if limit:
+            slices = slices[:limit]
+        done = TaskQueue(session, study).count("search", status="done")
+
+    calls = len(slices) * pages_per_slice
+    remaining = max(0, calls - done)
+    typer.echo(f"study: {study}  slicing: {slicing}  pages per slice: {pages_per_slice}")
+    typer.echo(f"slices: {len(slices)}   search calls: {calls}   already done: {done}")
+    typer.echo(
+        f"remaining: {remaining} search calls  "
+        f"= {day_estimate(remaining, limits.usable_search_calls)} days "
+        f"at {limits.usable_search_calls}/day"
+    )
+    typer.echo(
+        "units: videos+channels are about "
+        f"{-(-len(slices) * 50 // 50)} units, well inside {limits.usable_units}/day"
+    )
 
 
 @app.command()
@@ -73,19 +133,56 @@ def search(
     dry_run: DryRun = False,
 ) -> None:
     """Step 1: discover videos with search.list."""
-    _todo("search", 3)
+    from ytcollector.config import load_study
+    from ytcollector.stages import search as search_stage
+    from ytcollector.tasks import TaskQueue
+
+    config = load_study(study)
+    scope, session, client, _ = _runtime(study)
+    try:
+        queue = TaskQueue(session, study)
+        queue.recover_orphans("search")
+        slices = search_stage.plan(
+            session, study, slicing=slicing,
+            before=config.months_before_first, after=config.months_after_last,
+            games=_ids(games),
+        )
+        search_stage.enqueue(queue, slices, pages_per_slice=pages_per_slice)
+        session.commit()
+        result = search_stage.run(session, client, study, limit=limit, dry_run=dry_run)
+    finally:
+        scope.__exit__(None, None, None)
+
+    typer.echo(
+        f"search: {result.processed} slices, {result.items} videos, {result.calls} calls"
+        + (" (quota exhausted)" if result.stopped_on_quota else "")
+    )
 
 
 @app.command()
 def videos(study: Study = DEFAULT_STUDY, dry_run: DryRun = False) -> None:
     """Step 2: fetch video statistics."""
-    _todo("videos", 3)
+    from ytcollector.stages import videos as videos_stage
+
+    scope, session, client, _ = _runtime(study)
+    try:
+        result = videos_stage.run(session, client, study, dry_run=dry_run)
+    finally:
+        scope.__exit__(None, None, None)
+    typer.echo(f"videos: {result.items} snapshots, {result.calls} calls")
 
 
 @app.command()
 def channels(study: Study = DEFAULT_STUDY, dry_run: DryRun = False) -> None:
     """Step 3: fetch channel statistics."""
-    _todo("channels", 3)
+    from ytcollector.stages import channels as channels_stage
+
+    scope, session, client, _ = _runtime(study)
+    try:
+        result = channels_stage.run(session, client, study, dry_run=dry_run)
+    finally:
+        scope.__exit__(None, None, None)
+    typer.echo(f"channels: {result.items} snapshots, {result.calls} calls")
 
 
 @app.command()
@@ -113,13 +210,39 @@ def channel_panel(
 @app.command("refresh-stats")
 def refresh_stats(study: Study = DEFAULT_STUDY) -> None:
     """Append a dated snapshot of statistics for every known video."""
-    _todo("refresh-stats", 3)
+    from sqlalchemy import select
+
+    from ytcollector.models import GameVideo
+    from ytcollector.stages import videos as videos_stage
+
+    scope, session, client, _ = _runtime(study)
+    try:
+        ids = list(
+            session.scalars(
+                select(GameVideo.video_id).where(GameVideo.study == study).distinct()
+            )
+        )
+        result = videos_stage.run(session, client, study, video_ids=ids)
+    finally:
+        scope.__exit__(None, None, None)
+    typer.echo(f"refresh-stats: {result.items} new snapshots over {len(ids)} videos")
 
 
 @app.command("build-tables")
 def build_tables(study: Study = DEFAULT_STUDY) -> None:
     """Rebuild analysis tables from cached raw responses, with no network calls."""
-    _todo("build-tables", 3)
+    from ytcollector import tables
+    from ytcollector.db import session_scope
+
+    with session_scope() as session:
+        counts = tables.build(session, study)
+        conflicts = tables.join_key_conflicts(session, study)
+
+    for table, rows in counts.items():
+        typer.echo(f"{table}: {rows} rows")
+    if conflicts:
+        typer.echo(f"error: {conflicts} duplicate (game_id, year, month) keys", err=True)
+        raise typer.Exit(1)
 
 
 @app.command("build-attention")
@@ -138,7 +261,36 @@ def export(
     out: Annotated[str, typer.Option("--out")] = "exports",
 ) -> None:
     """Export the analysis tables to Parquet or CSV."""
-    _todo("export", 3)
+    from pathlib import Path
+
+    import pandas as pd
+    from sqlalchemy import select
+
+    from ytcollector import tables
+    from ytcollector.db import session_scope
+    from ytcollector.models import GameMonth
+
+    directory = Path(out)
+    directory.mkdir(parents=True, exist_ok=True)
+
+    with session_scope() as session:
+        frames = {
+            "games": tables.games_frame(session, study),
+            "yt_game_month": pd.DataFrame(
+                [
+                    {c.name: getattr(r, c.name) for c in GameMonth.__table__.columns}
+                    for r in session.scalars(select(GameMonth).where(GameMonth.study == study))
+                ]
+            ),
+        }
+
+    for name, frame in frames.items():
+        path = directory / f"{study}_{name}.{'parquet' if format == 'parquet' else 'csv'}"
+        if format == "parquet":
+            frame.to_parquet(path, index=False)
+        else:
+            frame.to_csv(path, index=False)
+        typer.echo(f"{path}: {len(frame)} rows")
 
 
 @app.command()
