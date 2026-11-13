@@ -1,0 +1,49 @@
+# Collector settings. API limits are configuration, not constants: the values below
+# were verified on 2026-11-13 and may change (SPEC section 2).
+
+quota:
+  # search.list has its own daily counter; every page counts as one call.
+  search_calls_per_day: 100
+  # Shared budget for every other endpoint.
+  units_per_day: 10000
+  # Fraction of each budget left untouched, as a guard against drift.
+  safety_margin: 0.05
+  # Units held back for videos, channels and refresh-stats while comments run.
+  units_reserve: 1000
+  # Quotas reset at midnight Pacific time.
+  timezone: America/Los_Angeles
+
+search:
+  slicing: month
+  pages_per_slice: 1
+  max_results: 50
+  order: viewCount
+  # Gaming.
+  video_category_id: "20"
+  # Left unset on purpose: both skew the result set (SPEC section 12).
+  region_code: null
+  relevance_language: null
+
+videos:
+  batch_size: 50
+  description_max_chars: 500
+  short_duration_seconds: 60
+
+channels:
+  batch_size: 50
+  big_channel_threshold: 1000000
+
+comments:
+  min_comments: 30
+  max_threads_per_video: 50000
+  page_size: 100
+  order: time
+  store_text: false
+
+panel:
+  min_subscribers: 100000
+
+http:
+  timeout_seconds: 30
+  max_retries: 5
+  backoff_factor: 2.0

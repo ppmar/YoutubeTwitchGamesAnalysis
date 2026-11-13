@@ -1,0 +1,495 @@
+# Battle royale study roster.
+#
+# 39 enabled games plus 4 disabled ones whose battle royale is only a mode.
+# Twitch labels are matched case-insensitively and merged, so listing one casing
+# catches the others.
+#
+# Fields:
+#   game_id       stable key, also used by `ytc --games`
+#   twitch_names  every Twitch label to merge into this game
+#   yt_query      the `q` sent to search.list; tighten it if title_match stays under 70%
+#   match_terms   looked up in title, tags and description to confirm a video
+#   release_date  to be filled in by the team (SPEC section 14)
+#   valid_from    Twitch months before this one belong to another game (Warzone)
+#   role          precursor | leader | follower | mode
+#   enabled       set to false to leave a game out of collection
+#
+# yt_query, match_terms and enabled can be tuned directly in the database:
+# `ytc prepare-games` never overwrites them on an existing row.
+# Roles are a first pass and should be reviewed by the team.
+
+study: battle_royale
+title: Battle royale
+description: Battle royale titles present in the Twitch top 200 between 2016-01 and 2024-09.
+window:
+  months_before_first: 12
+  months_after_last: 6
+games:
+- game_id: fortnite
+  game_name: Fortnite
+  twitch_names:
+  - Fortnite
+  - Fortnite Zero Build
+  yt_query: '"Fortnite"'
+  match_terms:
+  - Fortnite
+  release_date: null
+  role: leader
+  enabled: true
+  notes: The Twitch category covers every mode (Save the World, Creative, Zero Build), not only battle
+    royale.
+- game_id: pubg
+  game_name: PUBG
+  twitch_names:
+  - PLAYERUNKNOWN'S BATTLEGROUNDS
+  - 'PUBG: BATTLEGROUNDS'
+  yt_query: '"PUBG"'
+  match_terms:
+  - PUBG
+  - PLAYERUNKNOWN
+  - BATTLEGROUNDS
+  release_date: null
+  role: leader
+  enabled: true
+  notes: First rows in 2016-09, before the 2017-03 early access. To be checked by the team.
+- game_id: apex-legends
+  game_name: Apex Legends
+  twitch_names:
+  - Apex Legends
+  yt_query: '"Apex Legends"'
+  match_terms:
+  - Apex Legends
+  release_date: null
+  role: leader
+  enabled: true
+- game_id: call-of-duty-warzone
+  game_name: 'Call of Duty: Warzone'
+  twitch_names:
+  - 'Call of Duty: Warzone'
+  - 'Call of Duty: Warzone 2.0'
+  yt_query: '"Call of Duty: Warzone"'
+  match_terms:
+  - Warzone
+  release_date: null
+  role: leader
+  enabled: true
+  valid_from: 2020-03
+  notes: 'The Twitch category starts in 2019-08 but Warzone was released in 2020-03: earlier months are
+    Modern Warfare (2019). `valid_from` drops them at join time.'
+- game_id: pubg-mobile
+  game_name: PUBG Mobile
+  twitch_names:
+  - PUBG Mobile
+  yt_query: '"PUBG Mobile"'
+  match_terms:
+  - PUBG Mobile
+  release_date: null
+  role: follower
+  enabled: true
+  notes: 'Many videos are in Hindi, Urdu or Portuguese and never spell out the game name: expect false
+    negatives.'
+- game_id: garena-free-fire
+  game_name: Garena Free Fire
+  twitch_names:
+  - Garena Free Fire
+  yt_query: '"Garena Free Fire"'
+  match_terms:
+  - Free Fire
+  - Garena
+  release_date: null
+  role: follower
+  enabled: true
+  notes: 'Large non-English audience (Portuguese, Spanish, Hindi): expect false negatives.'
+- game_id: fall-guys
+  game_name: Fall Guys
+  twitch_names:
+  - 'Fall Guys: Ultimate Knockout'
+  - Fall Guys
+  yt_query: '"Fall Guys"'
+  match_terms:
+  - Fall Guys
+  release_date: null
+  role: follower
+  enabled: true
+- game_id: z1-battle-royale
+  game_name: 'Z1: Battle Royale'
+  twitch_names:
+  - 'Z1: Battle Royale'
+  yt_query: '"Z1: Battle Royale"'
+  match_terms:
+  - Z1
+  - H1Z1
+  - King of the Kill
+  release_date: null
+  role: precursor
+  enabled: true
+- game_id: eternal-return
+  game_name: Eternal Return
+  twitch_names:
+  - 'Eternal Return: Black Survival'
+  - Eternal Return
+  yt_query: '"Eternal Return"'
+  match_terms:
+  - Eternal Return
+  - Black Survival
+  release_date: null
+  role: follower
+  enabled: true
+- game_id: naraka-bladepoint
+  game_name: 'Naraka: Bladepoint'
+  twitch_names:
+  - 'NARAKA: BLADEPOINT'
+  - 'Naraka: Bladepoint'
+  yt_query: '"Naraka: Bladepoint"'
+  match_terms:
+  - 'Naraka: Bladepoint'
+  release_date: null
+  role: follower
+  enabled: true
+- game_id: stumble-guys
+  game_name: Stumble Guys
+  twitch_names:
+  - Stumble Guys
+  yt_query: '"Stumble Guys"'
+  match_terms:
+  - Stumble Guys
+  release_date: null
+  role: follower
+  enabled: true
+- game_id: realm-royale
+  game_name: Realm Royale
+  twitch_names:
+  - Realm Royale
+  yt_query: '"Realm Royale"'
+  match_terms:
+  - Realm Royale
+  release_date: null
+  role: follower
+  enabled: true
+- game_id: ring-of-elysium
+  game_name: Ring of Elysium
+  twitch_names:
+  - Ring Of Elysium
+  yt_query: '"Ring of Elysium"'
+  match_terms:
+  - Ring of Elysium
+  release_date: null
+  role: follower
+  enabled: true
+- game_id: the-culling
+  game_name: The Culling
+  twitch_names:
+  - The Culling
+  yt_query: '"The Culling"'
+  match_terms:
+  - The Culling
+  release_date: null
+  role: precursor
+  enabled: true
+- game_id: ark-survival-of-the-fittest
+  game_name: 'ARK: Survival Of The Fittest'
+  twitch_names:
+  - 'ARK: Survival Of The Fittest'
+  yt_query: '"ARK: Survival Of The Fittest"'
+  match_terms:
+  - Survival of the Fittest
+  - ARK SOTF
+  release_date: null
+  role: precursor
+  enabled: true
+- game_id: super-people
+  game_name: Super People
+  twitch_names:
+  - Super People
+  yt_query: '"Super People"'
+  match_terms:
+  - Super People
+  release_date: null
+  role: follower
+  enabled: true
+- game_id: darwin-project
+  game_name: Darwin Project
+  twitch_names:
+  - Darwin Project
+  yt_query: '"Darwin Project"'
+  match_terms:
+  - Darwin Project
+  release_date: null
+  role: follower
+  enabled: true
+- game_id: sos
+  game_name: SOS
+  twitch_names:
+  - SOS
+  yt_query: '"SOS" battle royale game'
+  match_terms:
+  - SOS
+  release_date: null
+  role: follower
+  enabled: true
+  notes: 'Generic name: expect false positives on YouTube. Tighten `yt_query` if `title_match` stays low.'
+- game_id: spellbreak
+  game_name: Spellbreak
+  twitch_names:
+  - Spellbreak
+  yt_query: '"Spellbreak" battle royale'
+  match_terms:
+  - Spellbreak
+  release_date: null
+  role: follower
+  enabled: true
+- game_id: farlight-84
+  game_name: Farlight 84
+  twitch_names:
+  - Farlight 84
+  yt_query: '"Farlight 84"'
+  match_terms:
+  - Farlight 84
+  release_date: null
+  role: follower
+  enabled: true
+- game_id: vampire-the-masquerade-bloodhunt
+  game_name: 'Vampire: The Masquerade - Bloodhunt'
+  twitch_names:
+  - 'Vampire: The Masquerade - Bloodhunt'
+  yt_query: '"Vampire: The Masquerade - Bloodhunt"'
+  match_terms:
+  - Bloodhunt
+  release_date: null
+  role: follower
+  enabled: true
+- game_id: rumbleverse
+  game_name: Rumbleverse
+  twitch_names:
+  - Rumbleverse
+  yt_query: '"Rumbleverse" battle royale'
+  match_terms:
+  - Rumbleverse
+  release_date: null
+  role: follower
+  enabled: true
+- game_id: islands-of-nyne-battle-royale
+  game_name: 'Islands of Nyne: Battle Royale'
+  twitch_names:
+  - 'Islands of Nyne: Battle Royale'
+  yt_query: '"Islands of Nyne: Battle Royale"'
+  match_terms:
+  - Islands of Nyne
+  release_date: null
+  role: follower
+  enabled: true
+- game_id: battlerite-royale
+  game_name: Battlerite Royale
+  twitch_names:
+  - Battlerite Royale
+  yt_query: '"Battlerite Royale"'
+  match_terms:
+  - Battlerite Royale
+  release_date: null
+  role: follower
+  enabled: true
+- game_id: hyper-scape
+  game_name: Hyper Scape
+  twitch_names:
+  - Hyper Scape
+  yt_query: '"Hyper Scape"'
+  match_terms:
+  - Hyper Scape
+  release_date: null
+  role: follower
+  enabled: true
+- game_id: my-hero-ultra-rumble
+  game_name: My Hero Ultra Rumble
+  twitch_names:
+  - My Hero Ultra Rumble
+  yt_query: '"My Hero Ultra Rumble"'
+  match_terms:
+  - My Hero Ultra Rumble
+  release_date: null
+  role: follower
+  enabled: true
+- game_id: tetris-99
+  game_name: TETRIS 99
+  twitch_names:
+  - TETRIS 99
+  yt_query: '"TETRIS 99"'
+  match_terms:
+  - TETRIS 99
+  release_date: null
+  role: follower
+  enabled: true
+- game_id: radical-heights
+  game_name: Radical Heights
+  twitch_names:
+  - Radical Heights
+  yt_query: '"Radical Heights"'
+  match_terms:
+  - Radical Heights
+  release_date: null
+  role: follower
+  enabled: true
+- game_id: totally-accurate-battlegrounds
+  game_name: Totally Accurate Battlegrounds
+  twitch_names:
+  - Totally Accurate Battlegrounds
+  yt_query: '"Totally Accurate Battlegrounds"'
+  match_terms:
+  - Totally Accurate Battlegrounds
+  release_date: null
+  role: follower
+  enabled: true
+- game_id: shadow-arena
+  game_name: Shadow Arena
+  twitch_names:
+  - Shadow Arena
+  yt_query: '"Shadow Arena"'
+  match_terms:
+  - Shadow Arena
+  release_date: null
+  role: follower
+  enabled: true
+- game_id: scavengers
+  game_name: Scavengers
+  twitch_names:
+  - Scavengers
+  yt_query: '"Scavengers" battle royale'
+  match_terms:
+  - Scavengers
+  release_date: null
+  role: follower
+  enabled: true
+  notes: 'Generic name: expect false positives on YouTube.'
+- game_id: rules-of-survival
+  game_name: Rules of Survival
+  twitch_names:
+  - Rules of Survival
+  yt_query: '"Rules of Survival"'
+  match_terms:
+  - Rules of Survival
+  release_date: null
+  role: follower
+  enabled: true
+- game_id: call-of-duty-warzone-mobile
+  game_name: 'Call of Duty: Warzone Mobile'
+  twitch_names:
+  - 'Call of Duty: Warzone Mobile'
+  yt_query: '"Call of Duty: Warzone Mobile"'
+  match_terms:
+  - Warzone Mobile
+  release_date: null
+  role: follower
+  enabled: true
+- game_id: apex-legends-mobile
+  game_name: Apex Legends Mobile
+  twitch_names:
+  - Apex Legends Mobile
+  yt_query: '"Apex Legends Mobile"'
+  match_terms:
+  - Apex Legends Mobile
+  release_date: null
+  role: follower
+  enabled: true
+- game_id: crsed-f-o-a-d
+  game_name: 'CRSED: F.O.A.D.'
+  twitch_names:
+  - 'CRSED: F.O.A.D.'
+  yt_query: '"CRSED: F.O.A.D."'
+  match_terms:
+  - CRSED
+  - F.O.A.D
+  - Cuisine Royale
+  release_date: null
+  role: follower
+  enabled: true
+- game_id: fear-the-wolves
+  game_name: Fear the Wolves
+  twitch_names:
+  - Fear the Wolves
+  yt_query: '"Fear the Wolves"'
+  match_terms:
+  - Fear the Wolves
+  release_date: null
+  role: follower
+  enabled: true
+- game_id: dying-light-bad-blood
+  game_name: 'Dying Light: Bad Blood'
+  twitch_names:
+  - 'Dying Light: Bad Blood'
+  yt_query: '"Dying Light: Bad Blood"'
+  match_terms:
+  - 'Dying Light: Bad Blood'
+  release_date: null
+  role: follower
+  enabled: true
+- game_id: supervive
+  game_name: SUPERVIVE
+  twitch_names:
+  - SUPERVIVE
+  yt_query: '"SUPERVIVE"'
+  match_terms:
+  - SUPERVIVE
+  release_date: null
+  role: follower
+  enabled: true
+- game_id: headbangers-rhythm-royale
+  game_name: 'HeadBangers: Rhythm Royale'
+  twitch_names:
+  - 'HeadBangers: Rhythm Royale'
+  yt_query: '"HeadBangers: Rhythm Royale"'
+  match_terms:
+  - 'HeadBangers: Rhythm Royale'
+  release_date: null
+  role: follower
+  enabled: true
+- game_id: call-of-duty-black-ops-4
+  game_name: 'Call of Duty: Black Ops 4'
+  twitch_names:
+  - 'Call of Duty: Black Ops 4'
+  yt_query: '"Black Ops 4" Blackout battle royale'
+  match_terms:
+  - Blackout
+  - Black Ops 4
+  release_date: null
+  role: mode
+  enabled: false
+  notes: Battle royale is only the Blackout mode; it cannot be isolated on the Twitch side. Disabled by
+    default.
+- game_id: battlefield-v
+  game_name: Battlefield V
+  twitch_names:
+  - Battlefield V
+  yt_query: '"Battlefield V" Firestorm battle royale'
+  match_terms:
+  - Firestorm
+  - Battlefield V
+  release_date: null
+  role: mode
+  enabled: false
+  notes: Battle royale is only the Firestorm mode; it cannot be isolated on the Twitch side. Disabled
+    by default.
+- game_id: minecraft
+  game_name: Minecraft
+  twitch_names:
+  - Minecraft
+  yt_query: '"Minecraft" "Hunger Games" battle royale'
+  match_terms:
+  - Hunger Games
+  - Survival Games
+  release_date: null
+  role: mode
+  enabled: false
+  notes: Battle royale is only a community mode (Hunger Games / Survival Games). Disabled by default.
+- game_id: arma-3
+  game_name: Arma 3
+  twitch_names:
+  - Arma 3
+  yt_query: '"Arma 3" battle royale PlayerUnknown'
+  match_terms:
+  - Arma 3
+  - PlayerUnknown
+  - Battle Royale
+  release_date: null
+  role: mode
+  enabled: false
+  notes: Host of PlayerUnknown's original battle royale mod, but the Twitch category covers all of Arma
+    3. Disabled by default.
