@@ -32,7 +32,21 @@ def _todo(command: str, milestone: int) -> None:
 @app.command("prepare-games")
 def prepare_games(study: Study = DEFAULT_STUDY) -> None:
     """Step 0: build the `games` table from the study file and the Twitch CSV."""
-    _todo("prepare-games", 1)
+    from ytcollector.config import load_study
+    from ytcollector.db import session_scope
+    from ytcollector.games import prepare_games as run
+
+    config = load_study(study)
+    with session_scope() as session:
+        result = run(session, config)
+
+    typer.echo(
+        f"{result.study}: {result.total} games "
+        f"({result.created} created, {result.updated} updated), "
+        f"{result.enabled} enabled"
+    )
+    if result.unmatched:
+        typer.echo(f"warning: no Twitch rows for {', '.join(result.unmatched)}", err=True)
 
 
 @app.command()
