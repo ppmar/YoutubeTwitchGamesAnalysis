@@ -143,6 +143,14 @@ def collect_state(session: Session, study: str) -> dict[str, Any]:
             "index": row.attention_index,
             "share_a": row.share_method_a,
             "videos": row.n_videos_published,
+            "channels": row.n_channels_publishing,
+            # Who publishes, and in what format: the material for question 2.
+            "hhi": row.channel_hhi,
+            "topShare": row.top_channel_view_share,
+            "shorts": row.share_shorts,
+            "live": row.share_live,
+            "medianSubs": row.median_subscribers,
+            "commentsDated": row.n_comments_dated,
         }
         for row in session.scalars(
             select(GameMonth)

@@ -323,3 +323,17 @@ footer p { margin: 0 0 4px; max-width: var(--measure); }
 }
 .downloads a:hover { color: var(--ink); }
 .downloads span { color: var(--ink-soft); font-size: .84rem; }
+
+
+/* ---- chronology, shape, who publishes ---------------------------------- */
+
+.who-grid {
+  display: grid; gap: 22px 32px;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+}
+.who-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px; }
+.who-name { font-weight: 500; }
+.who-note { font-size: .78rem; color: var(--ink-faint); }
+
+.chrono-row:hover .chrono-bar { opacity: .75; }
+.dot-label { font-size: 10px; }

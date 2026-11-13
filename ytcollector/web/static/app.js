@@ -418,6 +418,298 @@
     }));
   }
 
+
+  /* ---- the genre's chronology ------------------------------------------- */
+
+  function gameSpans() {
+    var byId = {};
+    state.games.forEach(function (g) { byId[g.id] = g; });
+    return state.series.map(function (ser) {
+      var months = ser.points.map(function (p) { return p[0]; }).sort();
+      var peak = ser.points.reduce(function (best, p) {
+        return !best || p[1] > best[1] ? p : best;
+      }, null);
+      return {
+        id: ser.game_id,
+        name: ser.name,
+        months: months,
+        first: months[0],
+        last: months[months.length - 1],
+        peak: peak ? peak[0] : null,
+        hours: (byId[ser.game_id] || {}).hours || 0,
+        enabled: (byId[ser.game_id] || {}).enabled,
+      };
+    }).filter(function (g) { return g.months.length; })
+      .sort(function (a, b) { return a.first < b.first ? -1 : a.first > b.first ? 1 : 0; });
+  }
+
+  function allMonths() {
+    var set = {};
+    state.series.forEach(function (s) {
+      s.points.forEach(function (p) { set[p[0]] = true; });
+    });
+    return Object.keys(set).sort();
+  }
+
+  function renderChrono() {
+    var box = $("[data-chart-chrono]");
+    var games = gameSpans();
+    var months = allMonths();
+    if (!games.length || !months.length) {
+      box.replaceChildren(el("p", "note", "Pas de série Twitch chargée."));
+      return;
+    }
+
+    function draw() {
+      box.replaceChildren();
+      var W = Math.max(300, box.clientWidth);
+      var rowH = 15, labelW = W < 620 ? 0 : 160;
+      var m = {t: 8, r: 10, b: 24, l: labelW};
+      var H = m.t + games.length * rowH + m.b;
+      var iw = W - m.l - m.r;
+      var xOf = function (mo) {
+        return m.l + months.indexOf(mo) * iw / Math.max(1, months.length - 1);
+      };
+      var cellW = Math.max(1.4, iw / months.length);
+
+      var s = svg("svg", {viewBox: "0 0 " + W + " " + H, role: "img",
+        "aria-label": "Présence de " + games.length
+          + " jeux au top 200 Twitch, du plus ancien arrivé au plus récent"});
+
+      var ax = svg("g", {class: "ax"});
+      months.forEach(function (mo) {
+        if (mo.slice(5) !== "01" || parseInt(mo.slice(0, 4), 10) % 2) return;
+        var x = xOf(mo);
+        ax.append(svg("line", {x1: x, x2: x, y1: m.t, y2: m.t + games.length * rowH}));
+        var tx = svg("text", {x: x, y: H - 8, "text-anchor": "middle"});
+        tx.textContent = mo.slice(0, 4);
+        ax.append(tx);
+      });
+      s.append(ax);
+
+      games.forEach(function (g, i) {
+        var y = m.t + i * rowH;
+        var row = svg("g", {class: "chrono-row"});
+        var tip = svg("title");
+        tip.textContent = g.name + " — " + g.months.length + " mois, "
+          + g.first + " à " + g.last + ", pic " + (g.peak || "?");
+        row.append(tip);
+
+        g.months.forEach(function (mo) {
+          var bar = svg("rect", {x: xOf(mo) - cellW / 2, y: y + 2,
+            width: cellW, height: rowH - 5, class: "chrono-bar"});
+          bar.style.fill = g.enabled ? ink("--s1") : ink("--s-other");
+          bar.style.opacity = g.enabled ? 0.55 : 0.3;
+          row.append(bar);
+        });
+
+        if (g.peak) {
+          var mark = svg("line", {x1: xOf(g.peak), x2: xOf(g.peak),
+            y1: y + 1, y2: y + rowH - 2, "stroke-width": 1.6});
+          mark.style.stroke = ink("--s2");
+          row.append(mark);
+        }
+
+        if (labelW) {
+          var label = svg("text", {x: labelW - 8, y: y + rowH / 2 + 3,
+            "text-anchor": "end", "font-size": 10});
+          label.style.fill = g.enabled ? ink("--ink-soft") : ink("--ink-faint");
+          label.textContent = g.name.length > 24 ? g.name.slice(0, 23) + "…" : g.name;
+          row.append(label);
+        }
+        s.append(row);
+      });
+      box.append(s);
+    }
+
+    draw();
+    var pending;
+    window.addEventListener("resize", function () {
+      clearTimeout(pending); pending = setTimeout(draw, 160);
+    });
+  }
+
+  /* ---- rise against decline -------------------------------------------- */
+
+  function renderShape() {
+    var box = $("[data-chart-shape]");
+    var games = gameSpans().filter(function (g) { return g.peak && g.months.length >= 3; });
+    if (!games.length) { box.replaceChildren(el("p", "note", "Pas assez de données.")); return; }
+
+    function monthsApartLocal(a, b) {
+      return (parseInt(b.slice(0, 4), 10) * 12 + parseInt(b.slice(5, 7), 10)) -
+             (parseInt(a.slice(0, 4), 10) * 12 + parseInt(a.slice(5, 7), 10));
+    }
+    var pts = games.map(function (g) {
+      return {
+        name: g.name, hours: g.hours, enabled: g.enabled,
+        rise: monthsApartLocal(g.first, g.peak),
+        fall: monthsApartLocal(g.peak, g.last),
+      };
+    });
+
+    function draw() {
+      box.replaceChildren();
+      var W = Math.max(300, box.clientWidth);
+      var H = W < 560 ? 320 : 400;
+      var m = {t: 14, r: 14, b: 38, l: 44};
+      var maxRise = Math.max.apply(null, pts.map(function (p) { return p.rise; })) + 2;
+      var maxFall = Math.max.apply(null, pts.map(function (p) { return p.fall; })) + 2;
+      var lim = Math.max(maxRise, maxFall);
+      var xOf = function (v) { return m.l + v / lim * (W - m.l - m.r); };
+      var yOf = function (v) { return H - m.b - v / lim * (H - m.t - m.b); };
+      var maxHours = Math.max.apply(null, pts.map(function (p) { return p.hours; })) || 1;
+
+      var s = svg("svg", {viewBox: "0 0 " + W + " " + H, role: "img",
+        "aria-label": "Mois jusqu'au pic contre mois après le pic, un point par jeu"});
+
+      var ax = svg("g", {class: "ax"});
+      for (var t = 0; t <= 4; t++) {
+        var v = Math.round(lim * t / 4);
+        ax.append(svg("line", {x1: m.l, x2: W - m.r, y1: yOf(v), y2: yOf(v),
+          class: t === 0 ? "base" : null}));
+        var ly = svg("text", {x: m.l - 8, y: yOf(v) + 4, "text-anchor": "end"});
+        ly.textContent = v;
+        ax.append(ly);
+        var lx = svg("text", {x: xOf(v), y: H - 20, "text-anchor": "middle"});
+        lx.textContent = v;
+        ax.append(lx);
+      }
+      var xt = svg("text", {x: (m.l + W - m.r) / 2, y: H - 4, "text-anchor": "middle"});
+      xt.textContent = "mois jusqu'au pic";
+      ax.append(xt);
+      s.append(ax);
+
+      // The diagonal: above it a game lasted longer than it took to rise.
+      var diag = svg("line", {x1: xOf(0), y1: yOf(0), x2: xOf(lim), y2: yOf(lim),
+        "stroke-dasharray": "4 4", "stroke-width": 1});
+      diag.style.stroke = ink("--ink-faint");
+      s.append(diag);
+
+      pts.forEach(function (p) {
+        var r = 3 + 9 * Math.sqrt(p.hours / maxHours);
+        var g = svg("g");
+        var tip = svg("title");
+        tip.textContent = p.name + " — " + p.rise + " mois pour monter, "
+          + p.fall + " mois après le pic";
+        var c = svg("circle", {cx: xOf(p.rise), cy: yOf(p.fall), r: r.toFixed(1)});
+        c.style.fill = p.enabled ? ink("--s3") : ink("--s-other");
+        c.style.opacity = 0.45;
+        c.style.stroke = p.enabled ? ink("--s3") : ink("--s-other");
+        g.append(tip, c);
+        if (r > 8) {
+          var lab = svg("text", {x: xOf(p.rise), y: yOf(p.fall) - r - 4,
+            "text-anchor": "middle", class: "dot-label"});
+          lab.style.fill = ink("--ink-soft");
+          lab.textContent = p.name.length > 18 ? p.name.slice(0, 17) + "…" : p.name;
+          g.append(lab);
+        }
+        s.append(g);
+      });
+
+      var yt = svg("text", {x: 10, y: m.t + 4, "font-size": 11});
+      yt.style.fill = ink("--ink-faint");
+      yt.textContent = "mois après";
+      s.append(yt);
+      box.append(s);
+    }
+
+    draw();
+    var pending;
+    window.addEventListener("resize", function () {
+      clearTimeout(pending); pending = setTimeout(draw, 160);
+    });
+  }
+
+  /* ---- who publishes --------------------------------------------------- */
+
+  function renderWho() {
+    if (!state.attention.length) return;
+    $("[data-who-empty]").hidden = true;
+    var box = $("[data-who]");
+    box.hidden = false;
+
+    var names = {};
+    state.games.forEach(function (g) { names[g.id] = g.name; });
+    var byGame = {};
+    state.attention.forEach(function (r) {
+      if (r.hhi === null || r.hhi === undefined) return;
+      (byGame[r.game_id] = byGame[r.game_id] || []).push(r);
+    });
+
+    var cards = Object.keys(byGame).sort().map(function (id) {
+      var rows = byGame[id].slice().sort(function (a, b) {
+        return (a.year - b.year) || (a.month - b.month);
+      });
+      var card = el("figure", "plot");
+      card.style.margin = "0";
+      var head = el("div", "who-head");
+      head.append(el("span", "who-name", names[id] || id));
+      var mean = rows.reduce(function (t, r) { return t + r.hhi; }, 0) / rows.length;
+      head.append(el("span", "who-note",
+        "Herfindahl moyen " + mean.toFixed(2).replace(".", ",")));
+      card.append(head);
+
+      var W = 420, H = 110, m = {t: 10, r: 8, b: 20, l: 30};
+      var iw = W - m.l - m.r, ih = H - m.t - m.b;
+      var xOf = function (i) { return m.l + (rows.length < 2 ? 0 : i * iw / (rows.length - 1)); };
+      var yOf = function (v) { return m.t + ih - v * ih; };
+      var s = svg("svg", {viewBox: "0 0 " + W + " " + H, role: "img",
+        "aria-label": "Concentration des vues entre chaînes pour " + (names[id] || id)});
+
+      var ax = svg("g", {class: "ax"});
+      [0, 0.5, 1].forEach(function (v) {
+        ax.append(svg("line", {x1: m.l, x2: W - m.r, y1: yOf(v), y2: yOf(v),
+          class: v === 0 ? "base" : null}));
+        var t = svg("text", {x: m.l - 6, y: yOf(v) + 4, "text-anchor": "end"});
+        t.textContent = v === 0 ? "0" : v === 1 ? "1" : "0,5";
+        ax.append(t);
+      });
+      rows.forEach(function (r, i) {
+        if (r.month !== 1) return;
+        var t = svg("text", {x: xOf(i), y: H - 6, "text-anchor": "middle"});
+        t.textContent = r.year;
+        ax.append(t);
+      });
+      s.append(ax);
+
+      [["hhi", "--s1", null], ["topShare", "--s4", "4 3"], ["shorts", "--s3", "2 3"]]
+        .forEach(function (spec) {
+          var pts = rows.map(function (r, i) {
+            var v = r[spec[0]];
+            return v === null || v === undefined ? null : xOf(i) + "," + yOf(v);
+          }).filter(Boolean);
+          if (pts.length < 2) return;
+          var path = svg("path", {d: "M" + pts.join(" L"), fill: "none",
+            "stroke-width": 1.8, "stroke-dasharray": spec[2] || undefined,
+            "stroke-linejoin": "round"});
+          path.style.stroke = ink(spec[1]);
+          s.append(path);
+        });
+      card.append(s);
+
+      var key = el("div", "cmp-key");
+      [["--s1", "Herfindahl des chaînes", null],
+       ["--s4", "part de la 1re chaîne", "dashed"],
+       ["--s3", "part de Shorts", "dotted"]].forEach(function (k) {
+        var sp = el("span");
+        var sw = el("i");
+        if (k[2]) {
+          sw.style.background = "none";
+          sw.style.borderTop = "2px " + k[2] + " " + ink(k[0]);
+        } else {
+          sw.style.background = ink(k[0]);
+        }
+        sp.append(sw, el("span", null, k[1]));
+        key.append(sp);
+      });
+      card.append(key);
+      return card;
+    });
+
+    box.replaceChildren.apply(box, cards);
+  }
+
   /* ---- roster ---------------------------------------------------------- */
 
   function renderRoster() {
@@ -464,6 +756,9 @@
   tickReset();
   renderTwitch();
   renderCompare();
+  renderChrono();
+  renderShape();
+  renderWho();
   renderRoster();
   renderFooter();
 })();

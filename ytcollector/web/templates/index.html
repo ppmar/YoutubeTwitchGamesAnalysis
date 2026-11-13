@@ -86,6 +86,47 @@
     <div class="compare" data-compare hidden></div>
   </section>
 
+  <section class="band" aria-labelledby="h-chrono">
+    <h2 id="h-chrono">La chronologie du genre</h2>
+    <p class="note">
+      Chaque barre couvre les mois où le jeu figure au top 200 Twitch, du plus ancien
+      arrivé au plus récent. Le trait vertical marque son mois de pic. Les trous sont
+      des mois passés sous le 200ᵉ rang, pas des mois à zéro.
+    </p>
+    <figure class="plot">
+      <div class="canvas" data-chart-chrono
+           aria-label="Présence de chaque jeu au top 200 Twitch, par ordre d'arrivée">—</div>
+    </figure>
+  </section>
+
+  <section class="band" aria-labelledby="h-shape">
+    <h2 id="h-shape">Monter vite, tomber vite ?</h2>
+    <p class="note">
+      Pour chaque jeu : le nombre de mois mis à atteindre son pic, contre le nombre de
+      mois tenus après. La diagonale sépare les jeux qui s'écroulent plus vite qu'ils
+      n'ont monté de ceux qui durent. La taille du point est le volume d'heures regardées.
+    </p>
+    <figure class="plot">
+      <div class="canvas" data-chart-shape
+           aria-label="Mois jusqu'au pic contre mois après le pic, un point par jeu">—</div>
+    </figure>
+  </section>
+
+  <section class="band" aria-labelledby="h-who">
+    <h2 id="h-who">Qui publie, et sous quelle forme</h2>
+    <p class="note">
+      Concentration des vues entre les chaînes, mois par mois. Un indice de Herfindahl
+      élevé signifie qu'une poignée de chaînes capte presque tout ; une baisse signifie
+      que la tendance s'est élargie. C'est la matière de la question 2.
+    </p>
+    <div data-who-empty>
+      <p class="empty">
+        Rien à montrer tant que la collecte YouTube n'a pas produit d'agrégats mensuels.
+      </p>
+    </div>
+    <div class="who-grid" data-who hidden></div>
+  </section>
+
   <section class="band" aria-labelledby="h-roster">
     <h2 id="h-roster">Les jeux de l'étude</h2>
     <p class="note">

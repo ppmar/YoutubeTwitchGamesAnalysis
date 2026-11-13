@@ -6,6 +6,7 @@ The property that matters most: it must never write and never reach the API.
 from __future__ import annotations
 
 import os
+import re
 from datetime import UTC, datetime
 
 import pytest
@@ -52,12 +53,15 @@ class TestEndpoints:
     ) -> None:
         body = client.get("/").text
         assert body.startswith("<!doctype html>")
-        # Readable without JavaScript: every figure is already in the markup, so
-        # no element is left holding only its em-dash placeholder.
+        # Readable without JavaScript: every figure is already in the markup.
         head = body.split('<script id="state"')[0]
-        assert ">—<" not in head
         assert "39" in head
         assert "1 600" in head  # the slice total, grouped the French way
+
+        # The only placeholders left are the chart canvases, which a script draws.
+        placeholders = re.findall(r"<([a-z]+)([^>]*)>—<", head)
+        for tag, attrs in placeholders:
+            assert 'class="canvas"' in attrs or "data-chart" in attrs, (tag, attrs)
 
     def test_state_reports_the_collection(self, client: TestClient) -> None:
         state = client.get("/api/state").json()
