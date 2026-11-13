@@ -1,0 +1,39 @@
+# Secrets — the repo is public. Never commit credentials or client data.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Data exports and local artifacts (never commit collected data)
+exports/
+data/interim/
+data/processed/
+*.parquet
+*.sqlite
+*.db
+*.dump
+*.sql.gz
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Claude Code local state (settings.json is tracked on purpose)
+.claude/*
+!.claude/settings.json
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
