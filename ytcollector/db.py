@@ -76,6 +76,43 @@ def _lock_key(name: str) -> int:
     return int.from_bytes(digest, "big", signed=True)
 
 
+def stale_lock_holders(session: Session, idle_minutes: int = 5) -> list[tuple[int, str]]:
+    """Backends that hold an advisory lock and have been idle for too long.
+
+    A container killed mid-run leaves its PostgreSQL session open until the server
+    notices the dead connection, which can take hours. Until then its advisory lock
+    blocks every following run, so the stale holders have to be found and dropped.
+    Only sessions that are idle — never one doing work — are reported.
+    """
+    if session.get_bind().dialect.name != "postgresql":
+        return []
+    rows = session.execute(
+        text(
+            """
+            SELECT a.pid, a.state
+            FROM pg_locks l
+            JOIN pg_stat_activity a ON a.pid = l.pid
+            WHERE l.locktype = 'advisory'
+              AND l.pid <> pg_backend_pid()
+              AND a.datname = current_database()
+              AND a.state = 'idle'
+              AND a.state_change < now() - make_interval(mins => :mins)
+            """
+        ),
+        {"mins": idle_minutes},
+    ).all()
+    return [(int(pid), str(state)) for pid, state in rows]
+
+
+def release_stale_locks(session: Session, idle_minutes: int = 5) -> int:
+    """Terminate the idle backends still holding an advisory lock."""
+    holders = stale_lock_holders(session, idle_minutes)
+    for pid, _ in holders:
+        session.execute(text("SELECT pg_terminate_backend(:pid)"), {"pid": pid})
+    session.commit()
+    return len(holders)
+
+
 @contextmanager
 def execution_lock(session: Session, name: str = DEFAULT_LOCK_NAME) -> Iterator[None]:
     """Hold a PostgreSQL advisory lock for the duration of the block.

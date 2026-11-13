@@ -438,6 +438,24 @@ def daily(study: Study = DEFAULT_STUDY, dry_run: DryRun = False) -> None:
 
 
 @app.command()
+def unlock(
+    idle_minutes: Annotated[int, typer.Option("--idle-minutes")] = 5,
+) -> None:
+    """Release an execution lock left behind by a killed run."""
+    from ytcollector.db import release_stale_locks, session_scope, stale_lock_holders
+
+    _configure_logging()
+    with session_scope() as session:
+        holders = stale_lock_holders(session, idle_minutes)
+        if not holders:
+            typer.echo("unlock: no stale lock holder found")
+            return
+        released = release_stale_locks(session, idle_minutes)
+
+    typer.echo(f"unlock: terminated {released} idle session(s) holding an advisory lock")
+
+
+@app.command()
 def serve(
     host: Annotated[str, typer.Option("--host")] = "0.0.0.0",
     port: Annotated[int | None, typer.Option("--port")] = None,
