@@ -43,9 +43,11 @@ def upgrade() -> None:
             (video_id, disabled, truncated, complete, n_stored,
              oldest_comment_at, newest_comment_at, last_fetched_at)
         SELECT s.video_id,
-               MAX(CASE WHEN s.comments_disabled THEN 1 ELSE 0 END),
-               MAX(CASE WHEN s.comments_truncated THEN 1 ELSE 0 END),
-               0,
+               -- "= 1" rather than a bare integer: PostgreSQL will not put an
+               -- integer in a boolean column, while SQLite accepts either.
+               MAX(CASE WHEN s.comments_disabled THEN 1 ELSE 0 END) = 1,
+               MAX(CASE WHEN s.comments_truncated THEN 1 ELSE 0 END) = 1,
+               FALSE,
                COALESCE((SELECT COUNT(*) FROM comments c
                          WHERE c.video_id = s.video_id), 0),
                (SELECT MIN(c.comment_published_at) FROM comments c
@@ -61,8 +63,8 @@ def upgrade() -> None:
     op.execute(
         """
         UPDATE video_comment_state
-        SET complete = 1
-        WHERE n_stored > 0 AND truncated = 0 AND disabled = 0
+        SET complete = TRUE
+        WHERE n_stored > 0 AND truncated = FALSE AND disabled = FALSE
         """
     )
 
