@@ -15,10 +15,30 @@ from typing import Any
 import yaml
 
 PACKAGE_ROOT = Path(__file__).resolve().parent
+
+
+def _find_dir(relative: str, override: str) -> Path:
+    """Locate a runtime directory that ships beside the code, not inside it.
+
+    In a source checkout these sit next to the package; in the container the
+    package is installed into site-packages and the directories are copied to the
+    working directory instead. Resolving only against the package would point at
+    site-packages and fail at runtime, so the working directory is tried first.
+    """
+    from_env = os.environ.get(override)
+    if from_env:
+        return Path(from_env)
+    for base in (Path.cwd(), PACKAGE_ROOT.parent):
+        candidate = base / relative
+        if candidate.is_dir():
+            return candidate
+    return PACKAGE_ROOT.parent / relative
+
+
 PROJECT_ROOT = PACKAGE_ROOT.parent
-CONFIG_DIR = PROJECT_ROOT / "config"
+CONFIG_DIR = _find_dir("config", "YTC_CONFIG_DIR")
 STUDIES_DIR = CONFIG_DIR / "studies"
-DATA_DIR = PROJECT_ROOT / "data" / "external"
+DATA_DIR = _find_dir("data/external", "YTC_DATA_DIR")
 
 TWITCH_GAME_CSV = DATA_DIR / "Twitch_game_data.csv"
 TWITCH_GLOBAL_CSV = DATA_DIR / "Twitch_global_data.csv"

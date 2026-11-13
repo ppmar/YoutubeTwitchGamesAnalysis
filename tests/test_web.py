@@ -112,3 +112,48 @@ class TestQuotaReset:
 
     def test_it_is_always_in_the_future(self) -> None:
         assert web.next_quota_reset() > datetime.now(UTC)
+
+
+class TestRuntimeDirectories:
+    """Regression: the installed package must still find config/ and data/.
+
+    In the container the package lives in site-packages while `config/` and
+    `data/external/` are copied to the working directory. Resolving them against
+    the package pointed at site-packages and crashed every command at runtime.
+    """
+
+    def test_the_config_directory_is_found_from_the_working_directory(
+        self, tmp_path: object, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import importlib
+
+        root = tmp_path  # type: ignore[assignment]
+        (root / "config" / "studies").mkdir(parents=True)  # type: ignore[operator]
+        (root / "config" / "settings.yml").write_text("quota: {}\n")  # type: ignore[operator]
+        (root / "data" / "external").mkdir(parents=True)  # type: ignore[operator]
+        monkeypatch.chdir(root)  # type: ignore[arg-type]
+
+        import ytcollector.config as config_module
+
+        reloaded = importlib.reload(config_module)
+        try:
+            assert reloaded.CONFIG_DIR == root / "config"  # type: ignore[operator]
+            assert reloaded.DATA_DIR == root / "data" / "external"  # type: ignore[operator]
+        finally:
+            monkeypatch.undo()
+            importlib.reload(config_module)
+
+    def test_an_explicit_override_wins(
+        self, tmp_path: object, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import importlib
+
+        monkeypatch.setenv("YTC_CONFIG_DIR", str(tmp_path))
+        import ytcollector.config as config_module
+
+        reloaded = importlib.reload(config_module)
+        try:
+            assert reloaded.CONFIG_DIR == tmp_path
+        finally:
+            monkeypatch.undo()
+            importlib.reload(config_module)
