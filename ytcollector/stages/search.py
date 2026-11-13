@@ -97,6 +97,9 @@ def _store(
             page=page,
             period_end=payload["period_end"],
             params=params,
+            # Which query brought this slice back, so a later correction can be
+            # told apart (SPEC_FIXES 1.3).
+            query_version=payload.get("yt_query"),
             approx_total_results=page_info.get("totalResults"),
             n_returned=len(items),
             has_next_page=bool(response.get("nextPageToken")),

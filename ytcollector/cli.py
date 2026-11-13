@@ -58,6 +58,28 @@ def _configure_logging() -> None:
     logging.getLogger("ytcollector.client").setLevel(logging.INFO)
 
 
+def _stale_slices(session, study: str) -> dict[str, int]:  # type: ignore[no-untyped-def]
+    """Collected slices whose query no longer matches the game's current one."""
+    from sqlalchemy import func, select
+
+    from ytcollector.models import Game, SearchSlice
+
+    current = {
+        row.game_id: row.yt_query
+        for row in session.scalars(select(Game).where(Game.study == study))
+    }
+    rows = session.execute(
+        select(SearchSlice.game_id, SearchSlice.query_version, func.count())
+        .where(SearchSlice.study == study)
+        .group_by(SearchSlice.game_id, SearchSlice.query_version)
+    ).all()
+    stale: dict[str, int] = {}
+    for game_id, used, count in rows:
+        if used is not None and used != current.get(game_id):
+            stale[game_id] = stale.get(game_id, 0) + int(count)
+    return stale
+
+
 def _ids(value: str | None) -> list[str] | None:
     return [v.strip() for v in value.split(",") if v.strip()] if value else None
 
@@ -74,7 +96,13 @@ def _todo(command: str, milestone: int) -> None:
 
 
 @app.command("prepare-games")
-def prepare_games(study: Study = DEFAULT_STUDY) -> None:
+def prepare_games(
+    study: Study = DEFAULT_STUDY,
+    force_fields: Annotated[
+        str | None,
+        typer.Option("--force-fields", help="Tunable fields to overwrite, comma-separated."),
+    ] = None,
+) -> None:
     """Step 0: build the `games` table from the study file and the Twitch CSV."""
     from ytcollector.config import load_study
     from ytcollector.db import session_scope
@@ -82,7 +110,7 @@ def prepare_games(study: Study = DEFAULT_STUDY) -> None:
 
     config = load_study(study)
     with session_scope() as session:
-        result = run(session, config)
+        result = run(session, config, force_fields=_ids(force_fields) or ())
 
     typer.echo(
         f"{result.study}: {result.total} games "
@@ -121,6 +149,7 @@ def plan(
         if limit:
             slices = slices[:limit]
         done = TaskQueue(session, study).count("search", status="done")
+        stale = _stale_slices(session, study)
 
     calls = len(slices) * pages_per_slice
     remaining = max(0, calls - done)
@@ -135,6 +164,14 @@ def plan(
         "units: videos+channels are about "
         f"{-(-len(slices) * 50 // 50)} units, well inside {limits.usable_units}/day"
     )
+    if stale:
+        total = sum(stale.values())
+        typer.echo(
+            f"\n{total} collected slice(s) used a query that has since changed; "
+            "`ytc rematch` re-decides them without any call, re-collecting is a choice:"
+        )
+        for game_id, count in sorted(stale.items(), key=lambda kv: -kv[1]):
+            typer.echo(f"  {game_id:<28}{count:>6}")
 
 
 @app.command()
@@ -434,6 +471,69 @@ def daily(study: Study = DEFAULT_STUDY, dry_run: DryRun = False) -> None:
         f"quota {summary.quota['quota_date']} (Pacific): "
         f"search {summary.quota['search_remaining']} left, "
         f"units {summary.quota['units_remaining']} left"
+    )
+
+
+@app.command()
+def rematch(
+    study: Study = DEFAULT_STUDY,
+    games: Games = None,
+) -> None:
+    """Re-decide which videos belong to which game, then rebuild. No API call."""
+    from ytcollector import attention as attention_module
+    from ytcollector import tables
+    from ytcollector.db import session_scope
+    from ytcollector.rematch import rematch as run
+
+    _configure_logging()
+    with session_scope() as session:
+        result = run(session, study, games=_ids(games))
+        counts = tables.build(session, study)
+        rows = attention_module.build(session, study)
+
+    typer.echo(
+        f"rematch: {result.pairs} pairs, {result.changed} changed "
+        f"({result.now_matching} now matching, {result.now_rejected} now rejected)"
+    )
+    for game_id, counts_for_game in sorted(
+        result.by_game.items(), key=lambda kv: -kv[1]["changed"]
+    )[:10]:
+        if not counts_for_game["changed"]:
+            continue
+        typer.echo(
+            f"  {game_id:<28} {counts_for_game['changed']:>5} changed, "
+            f"{counts_for_game['excluded']:>5} excluded of {counts_for_game['pairs']}"
+        )
+    typer.echo(f"rebuilt: {counts['yt_game_month']} game-months, {rows} with attention")
+
+
+@app.command("audit-queries")
+def audit_queries(study: Study = DEFAULT_STUDY) -> None:
+    """Report, per game, what its query brought back and what it stole. No API call."""
+    from ytcollector.db import session_scope
+    from ytcollector.rematch import HIGH_OVERLAP, LOW_MATCH_RATE
+    from ytcollector.rematch import audit_queries as run
+
+    with session_scope() as session:
+        audits = run(session, study)
+
+    typer.echo(f"{'game':<28}{'videos':>8}{'match':>8}{'excl.':>8}  worst overlap")
+    flagged = 0
+    for audit in audits:
+        if not audit.videos:
+            continue
+        other, share = audit.worst_overlap
+        mark = "  <-- check" if audit.flagged else ""
+        flagged += 1 if audit.flagged else 0
+        typer.echo(
+            f"{audit.game_id:<28}{audit.videos:>8}{audit.match_rate:>7.0%}"
+            f"{audit.excluded_rate:>8.0%}  "
+            + (f"{other} {share:.0%}" if other else "-")
+            + mark
+        )
+    typer.echo(
+        f"\n{flagged} game(s) under {LOW_MATCH_RATE:.0%} match "
+        f"or over {HIGH_OVERLAP:.0%} overlap"
     )
 
 
