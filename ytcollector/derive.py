@@ -60,37 +60,78 @@ def fold(text: str | None) -> str:
     return stripped.casefold()
 
 
+def find_term(
+    terms: list[str],
+    haystack: str,
+    compact_haystack: str | None = None,
+) -> str | None:
+    """Return the first term found in ``haystack``, or None.
+
+    Whole words only: a bare substring test turns generic names like ``SOS``
+    into a flood of false positives (SPEC section 12). Multi-word terms are
+    additionally compared with separators removed, because non-English titles
+    write the name as ``ApexLegends`` or ``APEX-LEGENDS``.
+    """
+    compact_haystack = (
+        _COMPACT.sub("", haystack) if compact_haystack is None else compact_haystack
+    )
+    for term in terms:
+        needle = fold(term)
+        if not needle:
+            continue
+        if re.search(rf"(?<!\w){re.escape(needle)}(?!\w)", haystack):
+            return term
+        if " " in needle and _COMPACT.sub("", needle) in compact_haystack:
+            return term
+    return None
+
+
+def match_game(
+    terms: list[str],
+    exclude_terms: list[str] | None = None,
+    title: str | None = None,
+    tags: list[str] | None = None,
+    description: str | None = None,
+) -> tuple[bool, str | None]:
+    """Whether a video is about one game, and what decided it.
+
+    A match needs one of ``terms`` somewhere in the title, tags or description,
+    **and** no ``exclude_terms`` in the title or tags. The description is left out
+    of the exclusion check on purpose: it is long and often lists every game a
+    channel covers, so excluding on it would throw away good videos
+    (SPEC_FIXES 1.2).
+
+    Returns ``(matched, reason)`` where the reason names the term that decided,
+    prefixed with ``-`` when an exclusion blocked the match.
+    """
+    haystack = " ".join(
+        [fold(title), " ".join(fold(t) for t in (tags or [])), fold(description)]
+    )
+    if not haystack.strip():
+        return False, None
+
+    hit = find_term(terms, haystack)
+    if hit is None:
+        return False, None
+
+    if exclude_terms:
+        # Title and tags only.
+        narrow = " ".join([fold(title), " ".join(fold(t) for t in (tags or []))])
+        blocked = find_term(exclude_terms, narrow)
+        if blocked is not None:
+            return False, f"-{blocked}"
+
+    return True, hit
+
+
 def matches_terms(
     terms: list[str],
     title: str | None = None,
     tags: list[str] | None = None,
     description: str | None = None,
 ) -> bool:
-    """Whether any match term appears in the title, tags or description.
-
-    Whole words only: a bare substring test turns generic names like ``SOS`` into
-    a flood of false positives (SPEC section 12).
-    """
-    haystack = " ".join(
-        [fold(title), " ".join(fold(t) for t in (tags or [])), fold(description)]
-    )
-    if not haystack.strip():
-        return False
-
-    compact_haystack = _COMPACT.sub("", haystack)
-    for term in terms:
-        needle = fold(term)
-        if not needle:
-            continue
-        if re.search(rf"(?<!\w){re.escape(needle)}(?!\w)", haystack):
-            return True
-        # Non-English titles often drop or change the separator: a Japanese Apex
-        # video is tagged "ApexLegends" or "APEX-LEGENDS". Comparing the
-        # separator-free forms catches those. Only multi-word terms qualify: for a
-        # single word, dropping the boundary check would match inside other words.
-        if " " in needle and _COMPACT.sub("", needle) in compact_haystack:
-            return True
-    return False
+    """Backwards-compatible boolean form of :func:`match_game`."""
+    return match_game(terms, None, title, tags, description)[0]
 
 
 @lru_cache(maxsize=1)

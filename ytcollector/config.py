@@ -7,7 +7,7 @@ Google can change, not constants (SPEC section 2).
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -61,6 +61,8 @@ class GameConfig:
     yt_query: str
     match_terms: list[str]
     role: str
+    # Optional: a game only needs exclusions when a neighbour shares its name.
+    exclude_terms: list[str] = field(default_factory=list)
     enabled: bool = True
     release_date: str | None = None
     valid_from: str | None = None
@@ -118,6 +120,7 @@ def _game_from_mapping(raw: Any, index: int, source: Path) -> GameConfig:
         twitch_names=[str(n) for n in raw["twitch_names"]],
         yt_query=str(raw.get("yt_query") or f'"{name}"'),
         match_terms=[str(t) for t in (raw.get("match_terms") or [name])],
+        exclude_terms=[str(t) for t in (raw.get("exclude_terms") or [])],
         role=role,
         enabled=bool(raw.get("enabled", True)),
         release_date=raw.get("release_date"),

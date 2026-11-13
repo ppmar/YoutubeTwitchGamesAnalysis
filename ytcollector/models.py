@@ -49,6 +49,9 @@ class Game(Base):
     twitch_names: Mapped[list[str]] = mapped_column(JSON)
     yt_query: Mapped[str] = mapped_column(Text)
     match_terms: Mapped[list[str]] = mapped_column(JSON)
+    # A match needs a match term and no exclude term: without this, "PUBG"
+    # catches PUBG Mobile (SPEC_FIXES 1.2).
+    exclude_terms: Mapped[list[str]] = mapped_column(JSON, default=list)
     role: Mapped[str] = mapped_column(String(16))
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
 
@@ -169,6 +172,8 @@ class SearchSlice(Base):
     approx_total_results: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     n_returned: Mapped[int] = mapped_column(Integer, default=0)
     has_next_page: Mapped[bool] = mapped_column(Boolean, default=False)
+    # The query this slice was collected with, so a later change can be told apart.
+    query_version: Mapped[str | None] = mapped_column(String(64), nullable=True)
     collected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
@@ -183,8 +188,16 @@ class GameVideo(Base):
     period_start: Mapped[str] = mapped_column(String(10), primary_key=True)
 
     rank: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    # 'search' or 'panel'.
+    # 'search', 'panel' or 'cohort'.
     source: Mapped[str] = mapped_column(String(16), default="search")
+
+    # Whether this video is about *this* game. Held per pair, not on the snapshot:
+    # a snapshot-level flag was computed from every linked game's terms at once,
+    # so one video counted for two games (SPEC_FIXES 1.1).
+    title_match: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    # The term that decided, prefixed with '-' when an exclusion blocked it.
+    match_reason: Mapped[str | None] = mapped_column(String(128), nullable=True)
+
     collected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
@@ -223,7 +236,7 @@ class VideoSnapshot(Base):
     # Derived.
     is_short_proxy: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     was_live: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
-    title_match: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    # `title_match` now lives on `game_videos`, per (game, video) pair.
     video_type: Mapped[str | None] = mapped_column(String(16), nullable=True)
 
     # Comment collection state lives in `video_comment_state`, keyed by video:
