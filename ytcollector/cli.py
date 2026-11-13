@@ -194,7 +194,27 @@ def comments(
     dry_run: DryRun = False,
 ) -> None:
     """Step 4: collect comment timestamps (dates only, no author and no text)."""
-    _todo("comments", 4)
+    from ytcollector.stages import comments as comments_stage
+    from ytcollector.tasks import TaskQueue
+
+    scope, session, client, settings = _runtime(study)
+    try:
+        TaskQueue(session, study).recover_orphans("comments")
+        result = comments_stage.run(
+            session, client, study,
+            min_comments=min_comments,
+            max_threads_per_video=max_threads_per_video,
+            games=_ids(games),
+            reserve=int(settings.get("quota", {}).get("units_reserve", 1000)),
+            dry_run=dry_run,
+        )
+    finally:
+        scope.__exit__(None, None, None)
+
+    typer.echo(
+        f"comments: {result.processed} videos, {result.items} timestamps"
+        + (" (unit reserve reached)" if result.stopped_on_quota else "")
+    )
 
 
 @app.command("channel-panel")
