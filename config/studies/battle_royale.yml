@@ -43,11 +43,15 @@ games:
   twitch_names:
   - PLAYERUNKNOWN'S BATTLEGROUNDS
   - 'PUBG: BATTLEGROUNDS'
-  yt_query: '"PUBG"'
+  yt_query: '"PUBG" -mobile'
   match_terms:
   - PUBG
   - PLAYERUNKNOWN
-  - BATTLEGROUNDS
+  exclude_terms:
+  - mobile
+  - BGMI
+  - PUBG Lite
+  - New State
   release_date: null
   role: leader
   enabled: true
@@ -56,9 +60,11 @@ games:
   game_name: Apex Legends
   twitch_names:
   - Apex Legends
-  yt_query: '"Apex Legends"'
+  yt_query: '"Apex Legends" -mobile'
   match_terms:
   - Apex Legends
+  exclude_terms:
+  - mobile
   release_date: null
   role: leader
   enabled: true
@@ -67,9 +73,11 @@ games:
   twitch_names:
   - 'Call of Duty: Warzone'
   - 'Call of Duty: Warzone 2.0'
-  yt_query: '"Call of Duty: Warzone"'
+  yt_query: '"Warzone" -mobile'
   match_terms:
   - Warzone
+  exclude_terms:
+  - mobile
   release_date: null
   role: leader
   enabled: true

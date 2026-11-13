@@ -19,7 +19,7 @@ from ytcollector.models import Game, utcnow
 from ytcollector.textnorm import grouping_key, normalize_name
 
 # Set by hand once the first results come back; never overwritten afterwards.
-MANUAL_FIELDS = ("yt_query", "match_terms", "enabled")
+MANUAL_FIELDS = ("yt_query", "match_terms", "exclude_terms", "enabled")
 
 
 @dataclass
@@ -108,12 +108,21 @@ def prepare_games(
     session: Session,
     study: StudyConfig,
     csv_path: Path | None = None,
+    force_fields: tuple[str, ...] | list[str] = (),
 ) -> PrepareResult:
     """Upsert the study's games, merging on ``(study, game_id)``.
 
-    Aggregates are recomputed on every run. ``yt_query``, ``match_terms`` and
-    ``enabled`` are left alone once a row exists, so hand tuning survives.
+    Aggregates are recomputed on every run. The fields in :data:`MANUAL_FIELDS`
+    are left alone once a row exists, so hand tuning survives — unless named in
+    ``force_fields``, which is how a corrected query reaches a database that
+    already holds the old one (SPEC_FIXES 1.2).
     """
+    forced = {f for f in force_fields if f in MANUAL_FIELDS}
+    unknown = {f for f in force_fields} - set(MANUAL_FIELDS)
+    if unknown:
+        raise ValueError(
+            f"cannot force {sorted(unknown)}; only {list(MANUAL_FIELDS)} are tunable"
+        )
     twitch = load_twitch_months(csv_path)
     existing = {
         row.game_id: row
@@ -131,12 +140,24 @@ def prepare_games(
                 game_id=config.game_id,
                 yt_query=config.yt_query,
                 match_terms=list(config.match_terms),
+                exclude_terms=list(config.exclude_terms),
                 enabled=config.enabled,
             )
             session.add(row)
             result.created += 1
         else:
             result.updated += 1
+            if "yt_query" in forced:
+                row.yt_query = config.yt_query
+            if "match_terms" in forced:
+                row.match_terms = list(config.match_terms)
+            if "exclude_terms" in forced:
+                row.exclude_terms = list(config.exclude_terms)
+            if "enabled" in forced:
+                row.enabled = config.enabled
+            if row.exclude_terms is None:
+                # Added after the first rows were written.
+                row.exclude_terms = list(config.exclude_terms)
 
         row.game_name = config.game_name
         row.twitch_names = list(config.twitch_names)
