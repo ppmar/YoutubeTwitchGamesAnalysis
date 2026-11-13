@@ -151,6 +151,11 @@ touchent pas aux tables de collecte, qui vivent dans `public`.
 
 Ce service ne sert qu'aux tests : pas de cron, pas de variables à y ajouter.
 
+Si le proxy a été créé par l'API GraphQL (`tcpProxyCreate`) plutôt que par le tableau de
+bord, Railway **ne renseigne pas** `DATABASE_PUBLIC_URL`. Reconstruire l'URL à la main
+depuis les variables du service et le proxy renvoyé :
+`postgresql+psycopg://$PGUSER:$PGPASSWORD@<domain>:<proxyPort>/$PGDATABASE`.
+
 ---
 
 ## Comportements Railway à connaître

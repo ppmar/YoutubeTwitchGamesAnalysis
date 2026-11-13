@@ -15,12 +15,16 @@ import secrets
 from collections.abc import Iterator
 
 import pytest
+from dotenv import load_dotenv
 from sqlalchemy import Engine, create_engine, text
 from sqlalchemy.orm import Session, sessionmaker
 
-from ytcollector.config import TWITCH_GAME_CSV
+from ytcollector.config import PROJECT_ROOT, TWITCH_GAME_CSV
 from ytcollector.db import create_all
 from ytcollector.models import Base
+
+# Pick up TEST_DATABASE_URL from .env without clobbering an explicit environment.
+load_dotenv(PROJECT_ROOT / ".env", override=False)
 
 
 @pytest.fixture
