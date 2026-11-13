@@ -9,6 +9,7 @@ Twitch sur `(game_id, year, month)`.
 Première étude : le genre **battle royale**, 39 jeux actifs du dataset Twitch.
 
 Spécification complète : [`docs/SPEC.md`](docs/SPEC.md).
+Calibration du score d'attention : [`docs/SPEC_CALIBRATION.md`](docs/SPEC_CALIBRATION.md) — non implémentée.
 Déploiement : [`docs/RAILWAY.md`](docs/RAILWAY.md).
 
 ## Installation
