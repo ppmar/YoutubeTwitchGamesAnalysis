@@ -33,6 +33,10 @@ channels:
   batch_size: 50
   big_channel_threshold: 1000000
 
+refresh:
+  # A video is re-snapshotted when its own newest snapshot is this old.
+  after_days: 7
+
 comments:
   min_comments: 30
   max_threads_per_video: 50000

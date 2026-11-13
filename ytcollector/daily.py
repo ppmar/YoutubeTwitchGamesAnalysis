@@ -68,14 +68,38 @@ class DailySummary:
         )
 
 
-def needs_refresh(session: Session, after_days: int = REFRESH_AFTER_DAYS) -> bool:
-    """Whether the newest snapshot is old enough to justify a new one."""
-    latest = session.scalar(select(func.max(VideoSnapshot.collected_at)))
-    if latest is None:
-        return False
-    if latest.tzinfo is None:
-        latest = latest.replace(tzinfo=UTC)
-    return datetime.now(UTC) - latest >= timedelta(days=after_days)
+def videos_due_for_refresh(
+    session: Session, study: str, after_days: int = REFRESH_AFTER_DAYS
+) -> list[str]:
+    """Videos whose newest snapshot is older than ``after_days``.
+
+    Asking whether *any* snapshot in the table was old never fired: search creates
+    fresh snapshots for newly discovered videos every day, so the table's maximum
+    was always recent and no video was ever re-snapshotted — which also meant the
+    weekly series the calibration needs would never exist
+    (SPEC_CALIBRATION 3.2).
+    """
+    cutoff = datetime.now(UTC) - timedelta(days=after_days)
+    newest = (
+        select(
+            VideoSnapshot.video_id,
+            func.max(VideoSnapshot.collected_at).label("collected_at"),
+        )
+        .where(
+            VideoSnapshot.video_id.in_(
+                select(GameVideo.video_id).where(GameVideo.study == study)
+            )
+        )
+        .group_by(VideoSnapshot.video_id)
+        .subquery()
+    )
+    return list(
+        session.scalars(
+            select(newest.c.video_id)
+            .where(newest.c.collected_at < cutoff)
+            .order_by(newest.c.video_id)
+        )
+    )
 
 
 def run(
@@ -116,12 +140,14 @@ def run(
     summary.videos = videos_stage.run(session, client, name, dry_run=dry_run).items
     summary.channels = channels_stage.run(session, client, name, dry_run=dry_run).items
 
-    # Weekly snapshot, which is what later calibrates the attention score.
-    if not dry_run and needs_refresh(session):
-        ids = list(
-            session.scalars(select(GameVideo.video_id).where(GameVideo.study == name).distinct())
-        )
-        summary.refreshed = videos_stage.run(session, client, name, video_ids=ids).items
+    # Weekly snapshot, decided per video, which is what later calibrates the score.
+    if not dry_run:
+        after_days = int(settings.get("refresh", {}).get("after_days", REFRESH_AFTER_DAYS))
+        due = videos_due_for_refresh(session, name, after_days=after_days)
+        if due:
+            summary.refreshed = videos_stage.run(
+                session, client, name, video_ids=due
+            ).items
 
     # Step 4 - comments, down to the unit reserve.
     summary.comments = comments_stage.run(

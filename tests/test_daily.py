@@ -179,18 +179,33 @@ class TestOrphanRecovery:
 
 class TestRefresh:
     def test_no_snapshots_means_nothing_to_refresh(self, session: object) -> None:
-        assert daily_module.needs_refresh(session) is False  # type: ignore[arg-type]
+        assert daily_module.videos_due_for_refresh(session, "s") == []  # type: ignore[arg-type]
 
-    def test_a_fresh_snapshot_is_not_refreshed(self, session: object) -> None:
-        session.add(VideoSnapshot(video_id="v1", collected_at=datetime.now(UTC)))  # type: ignore[attr-defined]
-        session.commit()  # type: ignore[attr-defined]
-        assert daily_module.needs_refresh(session) is False  # type: ignore[arg-type]
+    def test_a_fresh_snapshot_is_not_refreshed(self, seeded: object) -> None:
+        seeded.add(GameVideo(study="s", game_id="apex", video_id="v1",  # type: ignore[attr-defined]
+                             period_start="2020-01-01", source="search"))
+        seeded.add(VideoSnapshot(video_id="v1", collected_at=datetime.now(UTC)))  # type: ignore[attr-defined]
+        seeded.commit()  # type: ignore[attr-defined]
+        assert daily_module.videos_due_for_refresh(seeded, "s") == []  # type: ignore[arg-type]
 
-    def test_a_week_old_snapshot_is_refreshed(self, session: object) -> None:
+    def test_a_week_old_snapshot_is_refreshed(self, seeded: object) -> None:
         old = datetime.now(UTC) - timedelta(days=8)
-        session.add(VideoSnapshot(video_id="v1", collected_at=old))  # type: ignore[attr-defined]
-        session.commit()  # type: ignore[attr-defined]
-        assert daily_module.needs_refresh(session) is True  # type: ignore[arg-type]
+        seeded.add(GameVideo(study="s", game_id="apex", video_id="v1",  # type: ignore[attr-defined]
+                             period_start="2020-01-01", source="search"))
+        seeded.add(VideoSnapshot(video_id="v1", collected_at=old))  # type: ignore[attr-defined]
+        seeded.commit()  # type: ignore[attr-defined]
+        assert daily_module.videos_due_for_refresh(seeded, "s") == ["v1"]  # type: ignore[arg-type]
+
+    def test_a_stale_video_is_due_even_beside_a_fresh_one(self, seeded: object) -> None:
+        # The bug this replaces: search kept the table's newest snapshot recent,
+        # so no video was ever re-snapshotted.
+        for video_id, age in (("old", 9), ("fresh", 0)):
+            seeded.add(GameVideo(study="s", game_id="apex", video_id=video_id,  # type: ignore[attr-defined]
+                                 period_start="2020-01-01", source="search"))
+            seeded.add(VideoSnapshot(  # type: ignore[attr-defined]
+                video_id=video_id, collected_at=datetime.now(UTC) - timedelta(days=age)))
+        seeded.commit()  # type: ignore[attr-defined]
+        assert daily_module.videos_due_for_refresh(seeded, "s") == ["old"]  # type: ignore[arg-type]
 
     @responses.activate
     def test_refresh_appends_a_snapshot_for_known_videos(
