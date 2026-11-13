@@ -1,0 +1,63 @@
+# Keyword rules for classifying a video from its title (SPEC section 5, step 2).
+# First matching type wins, in the order below; `other` is the fallback.
+# Matching is case- and accent-insensitive, on word boundaries.
+
+order: [trailer, esport, review, guide, gameplay]
+
+types:
+  trailer:
+    - trailer
+    - teaser
+    - reveal
+    - announcement
+    - launch trailer
+    - cinematic
+    - bande annonce
+  esport:
+    - esport
+    - esports
+    - tournament
+    - championship
+    - grand final
+    - grand finals
+    - world cup
+    - invitational
+    - qualifier
+    - scrims
+    - lcs
+    - lck
+    - pro league
+  review:
+    - review
+    - critique
+    - first impressions
+    - is it worth
+    - worth playing
+    - verdict
+    - analysis
+  guide:
+    - guide
+    - tutorial
+    - how to
+    - tips
+    - tricks
+    - best settings
+    - loadout
+    - build
+    - beginner
+    - walkthrough
+    - astuce
+  gameplay:
+    - gameplay
+    - lets play
+    - let's play
+    - playthrough
+    - highlights
+    - montage
+    - win
+    - wins
+    - kills
+    - solo squad
+    - ranked
+    - stream
+    - live
