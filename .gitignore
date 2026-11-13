@@ -29,9 +29,9 @@ dist/
 .coverage
 htmlcov/
 
-# Claude Code local state (settings.json is tracked on purpose)
-.claude/*
-!.claude/settings.json
+# Claude Code local state — never versioned
+.claude/
+CLAUDE.md
 
 # OS / editor
 .DS_Store

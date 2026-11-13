@@ -6,7 +6,7 @@ Every command is a stub at milestone 0; each is filled in by its own milestone.
 from __future__ import annotations
 
 import os
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 
@@ -20,8 +20,8 @@ app = typer.Typer(
 DEFAULT_STUDY = os.environ.get("YTC_STUDY", "battle_royale")
 
 Study = Annotated[str, typer.Option("--study", help="Study configuration to use.")]
-Games = Annotated[Optional[str], typer.Option("--games", help="Comma-separated game ids.")]
-Limit = Annotated[Optional[int], typer.Option("--limit", help="Stop after N tasks.")]
+Games = Annotated[str | None, typer.Option("--games", help="Comma-separated game ids.")]
+Limit = Annotated[int | None, typer.Option("--limit", help="Stop after N tasks.")]
 DryRun = Annotated[bool, typer.Option("--dry-run", help="Emit no request; report what would run.")]
 
 
