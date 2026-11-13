@@ -19,6 +19,9 @@ app = typer.Typer(
 
 DEFAULT_STUDY = os.environ.get("YTC_STUDY", "battle_royale")
 
+# Stages that put work on the task queue, in pipeline order.
+STAGE_KINDS = ("search", "videos", "channels", "comments", "panel")
+
 Study = Annotated[str, typer.Option("--study", help="Study configuration to use.")]
 Games = Annotated[str | None, typer.Option("--games", help="Comma-separated game ids.")]
 Limit = Annotated[int | None, typer.Option("--limit", help="Stop after N tasks.")]
@@ -141,7 +144,35 @@ def export(
 @app.command()
 def status(study: Study = DEFAULT_STUDY) -> None:
     """Show remaining quota and progress per stage."""
-    _todo("status", 2)
+    from sqlalchemy import func, select
+
+    from ytcollector.config import load_settings
+    from ytcollector.db import session_scope
+    from ytcollector.models import Game
+    from ytcollector.quota import QuotaLimits, QuotaTracker
+    from ytcollector.tasks import TaskQueue
+
+    limits = QuotaLimits.from_settings(load_settings())
+    with session_scope() as session:
+        quota = QuotaTracker(session, limits).summary()
+        games = session.scalar(
+            select(func.count()).select_from(Game).where(Game.study == study, Game.enabled)
+        )
+        queue = TaskQueue(session, study)
+        stages = {kind: queue.progress(kind) for kind in STAGE_KINDS}
+
+    typer.echo(f"study: {study}  enabled games: {games or 0}")
+    typer.echo(
+        f"quota {quota['quota_date']} (Pacific): "
+        f"search {quota['search_remaining']} left of {quota['search_calls'] + quota['search_remaining']}, "
+        f"units {quota['units_remaining']} left"
+    )
+    for kind, counts in stages.items():
+        if any(counts.values()):
+            typer.echo(
+                f"  {kind:<14} pending {counts['pending']:>5}  running {counts['running']:>3}"
+                f"  done {counts['done']:>6}  failed {counts['failed']:>4}"
+            )
 
 
 @app.command()
