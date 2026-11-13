@@ -18,6 +18,9 @@ _DURATION = re.compile(
     r"(?:T(?:(?P<hours>\d+)H)?(?:(?P<minutes>\d+)M)?(?:(?P<seconds>\d+)S)?)?$"
 )
 
+# Everything that is not a letter or a digit, for separator-insensitive matching.
+_COMPACT = re.compile(r"[^0-9a-z]+")
+
 SHORT_MAX_SECONDS = 60
 
 
@@ -73,11 +76,19 @@ def matches_terms(
     )
     if not haystack.strip():
         return False
+
+    compact_haystack = _COMPACT.sub("", haystack)
     for term in terms:
         needle = fold(term)
         if not needle:
             continue
         if re.search(rf"(?<!\w){re.escape(needle)}(?!\w)", haystack):
+            return True
+        # Non-English titles often drop or change the separator: a Japanese Apex
+        # video is tagged "ApexLegends" or "APEX-LEGENDS". Comparing the
+        # separator-free forms catches those. Only multi-word terms qualify: for a
+        # single word, dropping the boundary check would match inside other words.
+        if " " in needle and _COMPACT.sub("", needle) in compact_haystack:
             return True
     return False
 

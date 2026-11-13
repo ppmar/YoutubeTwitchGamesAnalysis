@@ -87,3 +87,24 @@ class TestClassifyVideoType:
 
     def test_empty_title_is_other(self) -> None:
         assert classify_video_type("") == "other"
+
+
+class TestSeparatorInsensitiveMatching:
+    """Non-English titles write the game name without or with another separator."""
+
+    def test_matches_a_name_written_without_its_space(self) -> None:
+        assert matches_terms(["Apex Legends"], title="【ApexLegends】現役アイドルが魅せた神ムーブ")
+
+    def test_matches_a_name_written_with_a_hyphen(self) -> None:
+        assert matches_terms(["Apex Legends"], title="【APEX-LEGENDS-】ヒットボックス")
+
+    def test_matches_across_tags_too(self) -> None:
+        assert matches_terms(["Call of Duty"], title="clip", tags=["callofduty"])
+
+    def test_a_single_word_term_keeps_its_boundaries(self) -> None:
+        # Relaxing this one would match SOS inside any word containing those letters.
+        assert not matches_terms(["SOS"], title="Unboxing my new SOSpital kit")
+        assert not matches_terms(["PUBG"], title="pubgames review")
+
+    def test_a_multi_word_term_still_rejects_unrelated_text(self) -> None:
+        assert not matches_terms(["Apex Legends"], title="Minecraft survival series")
