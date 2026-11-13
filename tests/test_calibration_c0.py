@@ -60,11 +60,12 @@ def add_video(
     published: str = "2020-01",
 ) -> None:
     session.add(GameVideo(study="s", game_id="apex", video_id=video_id,  # type: ignore[attr-defined]
-                          period_start=f"{published}-01", source="search"))
+                          period_start=f"{published}-01", source="search",
+                          title_match=True))
     session.add(VideoSnapshot(  # type: ignore[attr-defined]
         video_id=video_id, collected_at=collected_at, channel_id="UC1",
         published_at=datetime.fromisoformat(f"{published}-05T00:00:00+00:00"),
-        view_count=10_000, comment_count=comment_count, title_match=True,
+        view_count=10_000, comment_count=comment_count,
         video_type="gameplay", is_short_proxy=False,
     ))
 
@@ -127,7 +128,7 @@ class TestTruncationSurvivesRefresh:
         game.add(VideoSnapshot(  # type: ignore[attr-defined]
             video_id="v1", collected_at=NOW + timedelta(days=7), channel_id="UC1",
             published_at=datetime(2020, 1, 5, tzinfo=UTC),
-            view_count=20_000, comment_count=600, title_match=True,
+            view_count=20_000, comment_count=600,
             video_type="gameplay", is_short_proxy=False,
         ))
         game.commit()  # type: ignore[attr-defined]
@@ -176,7 +177,7 @@ class TestWeeklyRefreshFires:
         add_video(game, "v1", collected_at=old)
         game.add(VideoSnapshot(  # type: ignore[attr-defined]
             video_id="v1", collected_at=datetime.now(UTC) - timedelta(days=1),
-            channel_id="UC1", title_match=True,
+            channel_id="UC1",
         ))
         game.commit()  # type: ignore[attr-defined]
         assert daily_module.videos_due_for_refresh(game, "s", after_days=7) == []  # type: ignore[arg-type]

@@ -31,13 +31,13 @@ def seeded(session: object) -> object:
     ]
     for vid, chan, day, views, likes, comments, short, live, vtype in videos:
         session.add(GameVideo(study="s", game_id="apex", video_id=vid,  # type: ignore[attr-defined]
-                              period_start=f"{day[:7]}-01", source="search"))
+                              period_start=f"{day[:7]}-01", source="search",
+                              title_match=vid != "v4"))
         session.add(VideoSnapshot(  # type: ignore[attr-defined]
             video_id=vid, collected_at=NOW, channel_id=chan,
             published_at=datetime.fromisoformat(f"{day}T12:00:00+00:00"),
             view_count=views, like_count=likes, comment_count=comments,
             is_short_proxy=short, was_live=live, video_type=vtype,
-            title_match=vid != "v4",
         ))
     session.add(ChannelSnapshot(channel_id="UC1", collected_at=NOW, subscriber_count=2_000_000))  # type: ignore[attr-defined]
     session.add(ChannelSnapshot(channel_id="UC2", collected_at=NOW, subscriber_count=5_000))  # type: ignore[attr-defined]

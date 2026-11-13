@@ -134,10 +134,11 @@ class TestQuestionTwo:
         for video_id, channel, day in (("v1", "UCbig", 15), ("v2", "UCbig", 2),
                                        ("v3", "UCsmall", 1)):
             seeded.add(VideoSnapshot(video_id=video_id, collected_at=NOW, channel_id=channel,  # type: ignore[attr-defined]
-                                     title="Apex Legends", title_match=True,
+                                     title="Apex Legends",
                                      published_at=datetime(2019, 2, day, tzinfo=UTC)))
             seeded.add(GameVideo(study="s", game_id="apex", video_id=video_id,  # type: ignore[attr-defined]
-                                 period_start="2019-02-01", source="panel"))
+                                 period_start="2019-02-01", source="panel",
+                                 title_match=True))
         seeded.commit()  # type: ignore[attr-defined]
 
         firsts = {f.channel_id: f for f in stage.first_videos_per_channel(seeded, "s")}  # type: ignore[arg-type]
@@ -149,10 +150,10 @@ class TestQuestionTwo:
     def test_counts_panel_videos_per_game_and_month(self, seeded: object) -> None:
         for video_id, month in (("v1", 1), ("v2", 1), ("v3", 2)):
             seeded.add(VideoSnapshot(video_id=video_id, collected_at=NOW, channel_id="UC1",  # type: ignore[attr-defined]
-                                     title_match=True,
                                      published_at=datetime(2020, month, 5, tzinfo=UTC)))
             seeded.add(GameVideo(study="s", game_id="apex", video_id=video_id,  # type: ignore[attr-defined]
-                                 period_start=f"2020-{month:02d}-01", source="panel"))
+                                 period_start=f"2020-{month:02d}-01", source="panel",
+                                 title_match=True))
         seeded.commit()  # type: ignore[attr-defined]
 
         counts = stage.monthly_counts_per_game(seeded, "s")  # type: ignore[arg-type]
@@ -162,7 +163,6 @@ class TestQuestionTwo:
     def test_search_results_are_excluded_from_panel_counts(self, seeded: object) -> None:
         # The panel is a fixed sample; mixing in search results would break it.
         seeded.add(VideoSnapshot(video_id="v1", collected_at=NOW, channel_id="UC1",  # type: ignore[attr-defined]
-                                 title_match=True,
                                  published_at=datetime(2020, 1, 5, tzinfo=UTC)))
         seeded.add(GameVideo(study="s", game_id="apex", video_id="v1",  # type: ignore[attr-defined]
                              period_start="2020-01-01", source="search"))

@@ -191,7 +191,8 @@ class TestRefresh:
     def test_a_week_old_snapshot_is_refreshed(self, seeded: object) -> None:
         old = datetime.now(UTC) - timedelta(days=8)
         seeded.add(GameVideo(study="s", game_id="apex", video_id="v1",  # type: ignore[attr-defined]
-                             period_start="2020-01-01", source="search"))
+                             period_start="2020-01-01", source="search",
+                             title_match=True))
         seeded.add(VideoSnapshot(video_id="v1", collected_at=old))  # type: ignore[attr-defined]
         seeded.commit()  # type: ignore[attr-defined]
         assert daily_module.videos_due_for_refresh(seeded, "s") == ["v1"]  # type: ignore[arg-type]
@@ -213,8 +214,9 @@ class TestRefresh:
     ) -> None:
         old = datetime.now(UTC) - timedelta(days=8)
         seeded.add(GameVideo(study="s", game_id="apex", video_id="v1",  # type: ignore[attr-defined]
-                             period_start="2020-01-01", source="search"))
-        seeded.add(VideoSnapshot(video_id="v1", collected_at=old, title_match=True))  # type: ignore[attr-defined]
+                             period_start="2020-01-01", source="search",
+                             title_match=True))
+        seeded.add(VideoSnapshot(video_id="v1", collected_at=old))  # type: ignore[attr-defined]
         seeded.commit()  # type: ignore[attr-defined]
         for _ in range(2):
             responses.add(responses.GET, f"{API_ROOT}/search",

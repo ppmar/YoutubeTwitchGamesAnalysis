@@ -187,9 +187,11 @@ class TestVideosStage:
         assert snap.duration_seconds == 45
         assert snap.is_short_proxy is True
         assert snap.was_live is False
-        assert snap.title_match is True
         assert snap.video_type == "gameplay"
         assert snap.view_count == 1000
+        # The match is decided per (game, video) pair, not on the snapshot.
+        link = session.scalar(select(GameVideo))  # type: ignore[attr-defined]
+        assert link.title_match is True
 
     @responses.activate
     def test_hidden_statistics_stay_null(
@@ -220,7 +222,7 @@ class TestVideosStage:
 
         videos_stage.run(session, client, "s")  # type: ignore[arg-type]
 
-        assert session.scalar(select(VideoSnapshot)).title_match is False  # type: ignore[attr-defined]
+        assert session.scalar(select(GameVideo)).title_match is False  # type: ignore[attr-defined]
 
     @responses.activate
     def test_refresh_appends_instead_of_overwriting(

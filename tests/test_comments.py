@@ -40,9 +40,10 @@ def client(session: object, tracker: QuotaTracker) -> YouTubeClient:
 def add_video(session: object, video_id: str, game_id: str = "apex", comments: int = 100,
               views: int = 1000, match: bool = True) -> None:
     session.add(GameVideo(study="s", game_id=game_id, video_id=video_id,  # type: ignore[attr-defined]
-                          period_start="2020-01-01", source="search"))
+                          period_start="2020-01-01", source="search",
+                          title_match=match))
     session.add(VideoSnapshot(video_id=video_id, collected_at=NOW, channel_id="UC1",  # type: ignore[attr-defined]
-                              comment_count=comments, view_count=views, title_match=match))
+                              comment_count=comments, view_count=views))
 
 
 @pytest.fixture

@@ -34,11 +34,12 @@ def add_video(
 ) -> None:
     total = sum((comments or {}).values())
     session.add(GameVideo(study="s", game_id=game_id, video_id=video_id,  # type: ignore[attr-defined]
-                          period_start=f"{published}-01", source="search"))
+                          period_start=f"{published}-01", source="search",
+                          title_match=True))
     session.add(VideoSnapshot(  # type: ignore[attr-defined]
         video_id=video_id, collected_at=collected_at, channel_id="UC1",
         published_at=at(published), view_count=views, comment_count=total,
-        title_match=True, video_type=video_type, is_short_proxy=is_short,
+        video_type=video_type, is_short_proxy=is_short,
     ))
     if truncated:
         # Collection state lives on the video now, not on the snapshot.
@@ -222,7 +223,6 @@ class TestCalibration:
             game.add(VideoSnapshot(  # type: ignore[attr-defined]
                 video_id="v1", collected_at=when, published_at=at("2025-12"),
                 view_count=1000 * (week + 1), comment_count=10 * (week + 1),
-                title_match=True,
             ))
         game.commit()  # type: ignore[attr-defined]
         rate = attention.calibrate_rate(game)  # type: ignore[arg-type]
@@ -237,7 +237,6 @@ class TestCalibration:
             game.add(VideoSnapshot(  # type: ignore[attr-defined]
                 video_id="v1", collected_at=when, published_at=at("2025-12"),
                 view_count=1000 * (week + 1), comment_count=10 * (week + 1),
-                title_match=True,
             ))
         game.commit()  # type: ignore[attr-defined]
         report = attention.validation_report(game)  # type: ignore[arg-type]
@@ -252,7 +251,6 @@ class TestCalibration:
             game.add(VideoSnapshot(  # type: ignore[attr-defined]
                 video_id="probe", collected_at=when, published_at=at("2025-12"),
                 view_count=1000 * (week + 1), comment_count=10 * (week + 1),
-                title_match=False,
             ))
         game.commit()  # type: ignore[attr-defined]
         assert attention.build(game, "s", calibrated=True) > 0  # type: ignore[arg-type]
