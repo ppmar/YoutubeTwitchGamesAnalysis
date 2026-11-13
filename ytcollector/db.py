@@ -16,19 +16,27 @@ from sqlalchemy.orm import Session, sessionmaker
 from ytcollector.config import database_url
 from ytcollector.models import Base
 
-_engine: Engine | None = None
-_session_factory: sessionmaker[Session] | None = None
+# Engines are pooled per URL rather than kept as a single global: caching one
+# engine for the whole process means a later DATABASE_URL is silently ignored,
+# which is wrong for any caller that connects to more than one database.
+_engines: dict[str, Engine] = {}
 
 
 def get_engine(url: str | None = None, echo: bool = False) -> Engine:
-    """Return the process-wide engine, creating it on first use."""
-    global _engine, _session_factory
-    if url is not None:
-        return create_engine(url, echo=echo, future=True)
-    if _engine is None:
-        _engine = create_engine(database_url(), echo=echo, future=True)
-        _session_factory = sessionmaker(bind=_engine, future=True)
-    return _engine
+    """Return the engine for this URL, creating it on first use."""
+    target = url or database_url()
+    engine = _engines.get(target)
+    if engine is None:
+        engine = create_engine(target, echo=echo, future=True)
+        _engines[target] = engine
+    return engine
+
+
+def dispose_engines() -> None:
+    """Close every pooled engine. Used by tests and at shutdown."""
+    while _engines:
+        _, engine = _engines.popitem()
+        engine.dispose()
 
 
 @contextmanager
