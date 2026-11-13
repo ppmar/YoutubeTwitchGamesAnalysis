@@ -1,0 +1,10 @@
+# Channels always kept in the panel, whatever their subscriber count
+# (SPEC section 5, step 5). Use this for creators who matter to the study but sit
+# below the automatic threshold, or whose counts are hidden.
+#
+# One entry per channel:
+#   - channel_id: UCxxxxxxxxxxxxxxxxxxxxxx
+#     title: readable name, for humans only
+#     notes: why this channel is in the panel
+
+channels: []
