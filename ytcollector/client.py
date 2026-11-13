@@ -42,6 +42,10 @@ UNIT_COST = {
 }
 
 QUOTA_REASONS = {"quotaExceeded", "rateLimitExceeded", "dailyLimitExceeded"}
+# The daily search quota is refused as 429 rateLimitExceeded, not only as the 403
+# the documentation describes. Treating 429 as an ordinary error made the run keep
+# hammering a budget that was already gone, one wasted request per pending slice.
+QUOTA_STATUSES = {403, 429}
 
 
 class ApiError(RuntimeError):
@@ -162,11 +166,11 @@ class YouTubeClient:
             reason = self._reason(body)
             message = (body.get("error") or {}).get("message", "")
 
-            if response.status_code == 403 and reason in QUOTA_REASONS:
+            if response.status_code in QUOTA_STATUSES and reason in QUOTA_REASONS:
                 budget = "search" if endpoint == SEARCH_ENDPOINT else "units"
                 self.tracker.mark_exhausted(budget)
                 logger.warning("%s budget exhausted according to the API", budget)
-                raise QuotaExceededError(endpoint, 403, reason, message)
+                raise QuotaExceededError(endpoint, response.status_code, reason, message)
 
             last_error = ApiError(endpoint, response.status_code, reason, message)
 

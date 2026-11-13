@@ -158,6 +158,22 @@ depuis les variables du service et le proxy renvoyé :
 
 ---
 
+## Le quota est partagé, le compteur ne l'est pas
+
+Le registre de quota vit **dans la base**. Deux bases, deux compteurs — mais une seule
+clé API, donc un seul quota réel chez Google. Lancer une collecte en local pendant que
+Railway tourne fait croire à chaque exécution qu'elle a 95 appels, alors qu'elles se
+partagent les 100 de la journée.
+
+Conséquence observée le 13/11/2026 : un pilote local de 20 appels suivi d'un run Railway
+a dépassé le plafond, et Google a répondu **429 `rateLimitExceeded`** — pas le 403 décrit
+dans la documentation. Le collecteur traite désormais les deux comme un épuisement et
+s'arrête proprement.
+
+En pratique : ne pas collecter en local le même jour que le cron, ou utiliser une seconde
+clé dans un autre projet Google Cloud pour les essais — ce qui est permis tant qu'il ne
+s'agit pas de contourner le quota de production.
+
 ## Comportements Railway à connaître
 
 - **L'heure d'exécution dérive** de quelques minutes. Sans importance ici : la marge entre

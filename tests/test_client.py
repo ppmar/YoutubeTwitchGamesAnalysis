@@ -216,3 +216,43 @@ class TestRawCache:
         assert json.loads(gzip.decompress(row.body_gzip)) == {"items": [{"id": "x"}]}
         assert row.endpoint == "videos"
         assert row.status_code == 200
+
+
+class TestQuotaRefusedAs429:
+    """Observed in production: the daily search quota comes back as 429.
+
+    The documentation describes a 403; Google actually answers
+    ``429 rateLimitExceeded`` with a 'per day' message. Treating that as an
+    ordinary error made the collector keep calling an exhausted budget.
+    """
+
+    @responses.activate
+    def test_429_stops_the_day(self, client: YouTubeClient, tracker: QuotaTracker) -> None:
+        responses.add(responses.GET, f"{API_ROOT}/search", status=429, json={
+            "error": {"code": 429, "message": "Quota exceeded for quota metric "
+                      "'Search Queries' and limit 'Search Queries per day'",
+                      "errors": [{"reason": "rateLimitExceeded"}]}})
+
+        with pytest.raises(QuotaExceededError):
+            client.search(q="fortnite")
+
+        assert not tracker.can_search()
+
+    @responses.activate
+    def test_429_is_not_retried(self, client: YouTubeClient) -> None:
+        responses.add(responses.GET, f"{API_ROOT}/search", status=429,
+                      json=quota_error("rateLimitExceeded"))
+        with pytest.raises(QuotaExceededError):
+            client.search(q="fortnite")
+        assert len(responses.calls) == 1
+
+    @responses.activate
+    def test_a_429_without_a_quota_reason_stays_an_ordinary_error(
+        self, client: YouTubeClient, tracker: QuotaTracker
+    ) -> None:
+        # A transient per-user throttle must not write off the whole day.
+        responses.add(responses.GET, f"{API_ROOT}/search", status=429, json={
+            "error": {"code": 429, "errors": [{"reason": "userRateLimitExceeded"}]}})
+        with pytest.raises(ApiError):
+            client.search(q="fortnite")
+        assert tracker.can_search()
