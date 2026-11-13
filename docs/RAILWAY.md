@@ -122,18 +122,22 @@ ont besoin d'un vrai serveur.
 
 **Ne jamais les pointer sur la base de collecte** : ils créent et détruisent des objets.
 
-1. Dans le même projet Railway : **New** → **Database** → **Add PostgreSQL**. Le renommer
-   `Postgres-test` pour ne pas le confondre avec l'autre.
-2. Service `Postgres-test` → onglet **Variables** → copier `DATABASE_PUBLIC_URL`.
+1. Dans le même projet Railway : bouton **+ New** (ou `Ctrl/Cmd + K`) → **Database** →
+   **Add PostgreSQL**. Le renommer `Postgres-test` pour ne pas le confondre avec l'autre.
+2. Service `Postgres-test` → **Settings** → section **Networking** → **Add Public Access**.
+   Sans ça, la base n'est joignable que depuis l'intérieur de Railway. Cette action crée
+   un proxy TCP et renseigne la variable `DATABASE_PUBLIC_URL`. Le trafic sortant par le
+   proxy est facturé — négligeable pour une base de test vide.
+3. Service `Postgres-test` → onglet **Variables** → copier `DATABASE_PUBLIC_URL`.
    C'est l'URL du proxy TCP (`…proxy.rlwy.net:PORT`), joignable depuis ta machine.
    `DATABASE_URL` pointe sur `…railway.internal`, qui ne répond qu'à l'intérieur de
    Railway : elle ne marchera pas en local.
-3. La poser en local dans `.env` :
+4. La poser en local dans `.env` :
    ```
    TEST_DATABASE_URL=postgresql+psycopg://postgres:…@…proxy.rlwy.net:12345/railway
    ```
    Remplacer le préfixe `postgresql://` donné par Railway par `postgresql+psycopg://`.
-4. Lancer la suite :
+5. Lancer la suite :
    ```sh
    pytest
    ```
