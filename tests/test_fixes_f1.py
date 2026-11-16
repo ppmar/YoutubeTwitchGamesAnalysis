@@ -159,7 +159,7 @@ class TestRematch:
         add_video(neighbours, "v1", "PUBG Mobile gameplay", ["pubg", "pubg-mobile"])
         neighbours.commit()  # type: ignore[attr-defined]
         with responses.RequestsMock() as mocked:
-            rematch(neighbours, "s")  # type: ignore[arg-type]
+            rematch(neighbours, "s", sync=False)  # type: ignore[arg-type]
             assert len(mocked.calls) == 0
 
     def test_it_rejects_what_the_old_decision_accepted(self, neighbours: object) -> None:
@@ -171,7 +171,7 @@ class TestRematch:
             row.match_reason = "migrated"
         neighbours.commit()  # type: ignore[attr-defined]
 
-        result = rematch(neighbours, "s")  # type: ignore[arg-type]
+        result = rematch(neighbours, "s", sync=False)  # type: ignore[arg-type]
 
         assert result.pairs == 2
         assert result.changed == 1
@@ -185,7 +185,7 @@ class TestRematch:
     def test_it_can_be_limited_to_some_games(self, neighbours: object) -> None:
         add_video(neighbours, "v1", "PUBG Mobile gameplay", ["pubg", "pubg-mobile"])
         neighbours.commit()  # type: ignore[attr-defined]
-        result = rematch(neighbours, "s", games=["pubg"])  # type: ignore[arg-type]
+        result = rematch(neighbours, "s", games=["pubg"], sync=False)  # type: ignore[arg-type]
         assert result.pairs == 1
         assert set(result.by_game) == {"pubg"}
 
@@ -283,3 +283,48 @@ class TestStudyFile:
         assert "BATTLEGROUNDS" not in games["pubg"].match_terms
         assert "mobile" in games["apex-legends"].exclude_terms
         assert "mobile" in games["call-of-duty-warzone"].exclude_terms
+
+
+class TestSyncTerms:
+    """Rematch exists to apply a corrected query, so it takes it from the file.
+
+    `prepare-games` leaves tunable fields alone so hand tuning survives, which
+    means a correction in the study file would otherwise never reach a database
+    that already holds the old query.
+    """
+
+    def test_it_pushes_the_study_file_terms_into_the_database(
+        self, session: object, twitch_csv: object
+    ) -> None:
+        from ytcollector.config import load_study
+        from ytcollector.games import prepare_games
+        from ytcollector.rematch import sync_terms
+
+        prepare_games(session, load_study("battle_royale"), csv_path=twitch_csv)  # type: ignore[arg-type]
+        row = session.scalar(  # type: ignore[attr-defined]
+            select(Game).where(Game.game_id == "pubg")
+        )
+        row.yt_query = "stale"
+        row.exclude_terms = []
+        session.commit()  # type: ignore[attr-defined]
+
+        sync_terms(session, "battle_royale")  # type: ignore[arg-type]
+
+        row = session.scalar(  # type: ignore[attr-defined]
+            select(Game).where(Game.game_id == "pubg")
+        )
+        assert row.yt_query == '"PUBG" -mobile'
+        assert "mobile" in row.exclude_terms
+
+    def test_it_can_be_turned_off(self, neighbours: object) -> None:
+        add_video(neighbours, "v1", "PUBG Mobile gameplay", ["pubg"])
+        neighbours.commit()  # type: ignore[attr-defined]
+        before = neighbours.scalar(  # type: ignore[attr-defined]
+            select(Game).where(Game.game_id == "pubg")
+        ).yt_query
+
+        rematch(neighbours, "s", sync=False)  # type: ignore[arg-type]
+
+        assert neighbours.scalar(  # type: ignore[attr-defined]
+            select(Game).where(Game.game_id == "pubg")
+        ).yt_query == before

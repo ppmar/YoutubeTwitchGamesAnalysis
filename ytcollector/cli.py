@@ -478,6 +478,11 @@ def daily(study: Study = DEFAULT_STUDY, dry_run: DryRun = False) -> None:
 def rematch(
     study: Study = DEFAULT_STUDY,
     games: Games = None,
+    sync_terms: Annotated[
+        bool,
+        typer.Option("--sync-terms/--no-sync-terms",
+                     help="Take the queries and terms from the study file first."),
+    ] = True,
 ) -> None:
     """Re-decide which videos belong to which game, then rebuild. No API call."""
     from ytcollector import attention as attention_module
@@ -487,7 +492,7 @@ def rematch(
 
     _configure_logging()
     with session_scope() as session:
-        result = run(session, study, games=_ids(games))
+        result = run(session, study, games=_ids(games), sync=sync_terms)
         counts = tables.build(session, study)
         rows = attention_module.build(session, study)
 

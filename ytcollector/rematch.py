@@ -32,12 +32,39 @@ class RematchResult:
     by_game: dict[str, dict[str, int]] = field(default_factory=dict)
 
 
-def rematch(session: Session, study: str, games: list[str] | None = None) -> RematchResult:
+def sync_terms(session: Session, study: str) -> int:
+    """Push the study file's query and terms into the database.
+
+    `prepare-games` leaves the tunable fields alone so hand tuning survives, which
+    means a corrected query in the study file never reaches a database that
+    already holds the old one. Rematch exists to apply a correction, so it takes
+    the correction from the file first (SPEC_FIXES 1.2).
+    """
+    from ytcollector.config import load_study
+    from ytcollector.games import prepare_games
+
+    config = load_study(study)
+    result = prepare_games(
+        session, config,
+        force_fields=("yt_query", "match_terms", "exclude_terms"),
+    )
+    return result.total
+
+
+def rematch(
+    session: Session,
+    study: str,
+    games: list[str] | None = None,
+    sync: bool = True,
+) -> RematchResult:
     """Re-decide every ``(game, video)`` pair from the stored snapshots.
 
     No request is made: the titles, tags and descriptions needed are already in
     ``video_snapshots``, and the untruncated descriptions in ``raw_responses``.
     """
+    if sync:
+        logger.info("synced terms for %d games from the study file", sync_terms(session, study))
+
     terms = {
         row.game_id: (row.match_terms or [], row.exclude_terms or [])
         for row in session.scalars(select(Game).where(Game.study == study))
