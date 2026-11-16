@@ -345,3 +345,45 @@ class TestMemoryAndQueries:
         assert seeded.scalar(  # type: ignore[attr-defined]
             select(func.count()).select_from(Comment)
         ) == 2
+
+
+class TestSessionStaysUsable:
+    """Regression: committing each page must not detach the task being worked on.
+
+    An `expunge_all` added with the memory fix detached the Task the loop still
+    held, so the comments stage died partway through with a
+    DetachedInstanceError — and `build-tables` never ran.
+    """
+
+    @responses.activate
+    def test_the_task_survives_a_multi_page_video(
+        self, seeded: object, client: YouTubeClient
+    ) -> None:
+        add_video(seeded, "v1")
+        seeded.commit()  # type: ignore[attr-defined]
+        for index in range(4):
+            items = [thread(f"c{index}-{i}", "2020-02-01T00:00:00Z") for i in range(100)]
+            responses.add(responses.GET, f"{API_ROOT}/commentThreads",
+                          json=page(items, "NEXT" if index < 3 else None))
+
+        result = stage.run(seeded, client, "s")  # type: ignore[arg-type]
+
+        assert result.errors == 0
+        assert result.processed == 1
+        assert TaskQueue(seeded, "s").count("comments", status="done") == 1  # type: ignore[arg-type]
+
+    @responses.activate
+    def test_several_videos_in_a_row_still_work(
+        self, seeded: object, client: YouTubeClient
+    ) -> None:
+        for video_id in ("v1", "v2", "v3"):
+            add_video(seeded, video_id)
+        seeded.commit()  # type: ignore[attr-defined]
+        for _ in range(3):
+            responses.add(responses.GET, f"{API_ROOT}/commentThreads", json=page(
+                [thread(f"c{_}", "2020-02-01T00:00:00Z")]))
+
+        result = stage.run(seeded, client, "s")  # type: ignore[arg-type]
+
+        assert result.processed == 3
+        assert result.errors == 0

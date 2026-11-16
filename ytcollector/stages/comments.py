@@ -231,10 +231,10 @@ def collect_video(
             raise
 
         stored += _store_page(session, video_id, response)
-        # Commit and let go of the page: holding a whole video's comments in the
-        # session is what made the container run out of memory.
+        # Commit each page so a long video does not hold one huge transaction.
+        # No expunge: the page is bulk-inserted at Core level and creates no ORM
+        # objects, while expunging would detach the Task this loop still holds.
         session.commit()
-        session.expunge_all()
         page_token = response.get("nextPageToken")
         if not page_token:
             mark_state(session, video_id, complete=True, stored=stored)
