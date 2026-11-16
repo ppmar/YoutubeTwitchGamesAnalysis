@@ -15,34 +15,9 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from ytcollector.config import load_study
-from ytcollector.db import create_all
-from ytcollector.games import prepare_games
-from ytcollector.models import Game, GameVideo, VideoSnapshot
+from ytcollector.models import Game
 from ytcollector.quota import PACIFIC
 from ytcollector.web import app as web
-
-
-@pytest.fixture
-def client(tmp_path: object, monkeypatch: pytest.MonkeyPatch, twitch_csv: object) -> TestClient:
-    url = f"sqlite:///{tmp_path}/web.db"  # type: ignore[str-bytes-safe]
-    engine = create_engine(url, future=True)
-    create_all(engine)
-    with sessionmaker(bind=engine, future=True)() as session:
-        prepare_games(session, load_study("battle_royale"), csv_path=twitch_csv)  # type: ignore[arg-type]
-        session.add(GameVideo(study="battle_royale", game_id="fortnite", video_id="v1",
-                              period_start="2020-01-01", source="search",
-                              title_match=True))
-        session.add(VideoSnapshot(
-            video_id="v1", collected_at=datetime.now(UTC), channel_id="UC1",
-            published_at=datetime(2020, 1, 5, tzinfo=UTC),
-            view_count=1000, video_type="gameplay",
-        ))
-        session.commit()
-    monkeypatch.setenv("DATABASE_URL", url)
-    monkeypatch.setenv("YTC_STUDY", "battle_royale")
-    web.twitch_frame.cache_clear()
-    return TestClient(web.app)
 
 
 class TestEndpoints:

@@ -123,28 +123,37 @@
   /* ---- Twitch chart ---------------------------------------------------- */
 
   function twitchSeries() {
-    var byMonth = {}, out = [], index = {};
+    var byMonth = {}, index = {};
     LEADERS.forEach(function (id) { index[id] = {name: id, points: {}}; });
-    index.__other__ = {name: "Reste du genre", points: {}};
 
     state.series.forEach(function (s) {
-      var key = LEADERS.indexOf(s.game_id) >= 0 ? s.game_id : "__other__";
-      if (key !== "__other__") index[key].name = s.name;
+      if (LEADERS.indexOf(s.game_id) < 0) return;
+      index[s.game_id].name = s.name;
       s.points.forEach(function (pt) {
-        index[key].points[pt[0]] = (index[key].points[pt[0]] || 0) + pt[1];
+        index[s.game_id].points[pt[0]] = pt[1];
         byMonth[pt[0]] = true;
       });
     });
 
+    // The aggregate comes from the server, which owns the definition of what
+    // belongs to the genre (SPEC_FIXES F2).
+    var rest = state.restOfGenre || {name: "Reste du genre", points: []};
+    rest.points.forEach(function (pt) { byMonth[pt[0]] = true; });
+
     var months = Object.keys(byMonth).sort();
-    Object.keys(index).forEach(function (key) {
-      var p = index[key].points;
-      out.push({
-        id: key,
-        name: index[key].name,
+    var out = LEADERS.map(function (id) {
+      var p = index[id].points;
+      return {
+        id: id,
+        name: index[id].name,
         points: months.filter(function (m) { return p[m] !== undefined; })
                       .map(function (m) { return {month: m, value: p[m]}; }),
-      });
+      };
+    });
+    out.push({
+      id: "__other__",
+      name: rest.name,
+      points: rest.points.map(function (pt) { return {month: pt[0], value: pt[1]}; }),
     });
     return {series: out, months: months};
   }

@@ -74,6 +74,27 @@ def next_quota_reset(now: datetime | None = None) -> datetime:
     return tomorrow.astimezone(UTC)
 
 
+def rest_of_genre(series: list[dict[str, Any]]) -> dict[str, Any]:
+    """Sum the non-leader games of the study into one series.
+
+    Only games still enabled: the four `role: mode` entries exist for reference
+    and must never land in an aggregate presented as the battle royale genre.
+    """
+    months: dict[str, int] = {}
+    games = 0
+    for item in series:
+        if item["leader"] or not item.get("enabled", True):
+            continue
+        games += 1
+        for month, hours in item["points"]:
+            months[month] = months.get(month, 0) + int(hours)
+    return {
+        "name": f"Reste du genre ({games} jeux)",
+        "games": games,
+        "points": [[month, months[month]] for month in sorted(months)],
+    }
+
+
 def _scalar(session: Session, column: Any, *where: Any) -> int:
     query = select(func.count()).select_from(column)
     for clause in where:
@@ -124,17 +145,24 @@ def collect_state(session: Session, study: str) -> dict[str, Any]:
     series = []
     if not months.empty:
         names = {g.game_id: g.game_name for g in roster}
+        enabled_ids = {g.game_id: g.enabled for g in roster}
         for game_id, group in months.groupby("game_id"):
             points = group.sort_values("year_month")
             series.append({
                 "game_id": game_id,
                 "name": names.get(game_id, game_id),
                 "leader": game_id in LEADERS,
+                "enabled": bool(enabled_ids.get(game_id, False)),
                 "points": [
                     [row.year_month, int(row.hours_watched)]
                     for row in points.itertuples()
                 ],
             })
+
+    # The genre aggregate is built here, not in the page: it must only hold games
+    # still in the study. Minecraft is disabled and carried 3.16bn hours, three
+    # quarters of what the aggregate used to show (SPEC_FIXES F2).
+    rest = rest_of_genre(series)
 
     attention = [
         {
@@ -244,6 +272,7 @@ def collect_state(session: Session, study: str) -> dict[str, Any]:
             for g in sorted(roster, key=lambda g: -(g.hours_watched_total or 0))
         ],
         "series": series,
+        "restOfGenre": rest,
         "attention": attention,
     }
 
