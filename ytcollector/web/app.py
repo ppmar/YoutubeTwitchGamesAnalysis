@@ -95,6 +95,60 @@ def rest_of_genre(series: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def _reindex(points: list[list]) -> list[list]:
+    """Rescale a monthly series to 0-100 on its own peak, like attention_index."""
+    peak = max((value for _, value in points), default=0)
+    if not peak:
+        return [[month, 0.0] for month, _ in points]
+    return [[month, round(100.0 * value / peak, 2)] for month, value in points]
+
+
+def build_franchises(
+    config: Any, series: list[dict[str, Any]], attention: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Sum each franchise's members into one Twitch and one YouTube series.
+
+    A franchise is a derived view, never a roster entry: the members keep their
+    own series and their own join, so nothing is double-counted in the genre.
+    Both sides are rescaled to 0-100 on their own peak, which is the only way to
+    compare a measured quantity with an estimated one.
+    """
+    by_game = {item["game_id"]: item for item in series}
+    out: list[dict[str, Any]] = []
+
+    for franchise in getattr(config, "franchises", []):
+        present = [m for m in franchise.members if m in by_game]
+        if not present:
+            continue
+
+        twitch_months: dict[str, int] = {}
+        for member in present:
+            for month, hours in by_game[member]["points"]:
+                twitch_months[month] = twitch_months.get(month, 0) + int(hours)
+
+        youtube_months: dict[str, float] = {}
+        members_with_attention: set[str] = set()
+        for row in attention:
+            if row["game_id"] not in franchise.members:
+                continue
+            members_with_attention.add(row["game_id"])
+            month = f"{row['year']}-{row['month']:02d}"
+            youtube_months[month] = youtube_months.get(month, 0.0) + (row["index"] or 0.0)
+
+        twitch = _reindex([[m, twitch_months[m]] for m in sorted(twitch_months)])
+        youtube = _reindex([[m, youtube_months[m]] for m in sorted(youtube_months)])
+        out.append({
+            "franchise_id": franchise.franchise_id,
+            "title": franchise.title,
+            "members": franchise.members,
+            "membersPresent": present,
+            "membersWithAttention": sorted(members_with_attention),
+            "twitch": twitch,
+            "youtube": youtube,
+        })
+    return out
+
+
 def _scalar(session: Session, column: Any, *where: Any) -> int:
     query = select(func.count()).select_from(column)
     for clause in where:
@@ -188,6 +242,8 @@ def collect_state(session: Session, study: str) -> dict[str, Any]:
         )
     ]
 
+    franchises = build_franchises(config, series, attention)
+
     now = datetime.now(UTC)
     reset = next_quota_reset(now)
     hours_left, minutes_left = divmod(int((reset - now).total_seconds()) // 60, 60)
@@ -273,6 +329,7 @@ def collect_state(session: Session, study: str) -> dict[str, Any]:
         ],
         "series": series,
         "restOfGenre": rest,
+        "franchises": franchises,
         "attention": attention,
     }
 
