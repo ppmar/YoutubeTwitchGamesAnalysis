@@ -24,6 +24,20 @@ description: Battle royale titles present in the Twitch top 200 between 2016-01 
 window:
   months_before_first: 12
   months_after_last: 6
+franchises:
+  # A franchise sums a parent game and its spin-offs. The members stay separate
+  # games — each keeps its own Twitch series and its own join — and the franchise
+  # is a derived view on top, for the questions where the whole family matters.
+  - franchise_id: pubg
+    title: PUBG (franchise)
+    members: [pubg, pubg-mobile]
+  - franchise_id: apex-legends
+    title: Apex Legends (franchise)
+    members: [apex-legends, apex-legends-mobile]
+  - franchise_id: warzone
+    title: "Call of Duty: Warzone (franchise)"
+    members: [call-of-duty-warzone, call-of-duty-warzone-mobile]
+
 games:
 - game_id: fortnite
   game_name: Fortnite
@@ -495,7 +509,9 @@ games:
   match_terms:
   - Arma 3
   - PlayerUnknown
-  - Battle Royale
+  exclude_terms:
+  - Arma Reforger
+  - Arma 4
   release_date: null
   role: mode
   enabled: false

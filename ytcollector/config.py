@@ -70,6 +70,21 @@ class GameConfig:
 
 
 @dataclass(frozen=True)
+class FranchiseConfig:
+    """A parent game and its spin-offs, summed for the views that want the family.
+
+    The members stay separate games — each keeps its own Twitch series and its
+    own join — so a franchise never double-counts inside the genre: it is a
+    derived view, never a member of the roster.
+    """
+
+    franchise_id: str
+    title: str
+    members: list[str]
+    notes: str | None = None
+
+
+@dataclass(frozen=True)
 class StudyConfig:
     """A study: a named roster of games plus its collection window."""
 
@@ -79,6 +94,7 @@ class StudyConfig:
     description: str = ""
     months_before_first: int = 12
     months_after_last: int = 6
+    franchises: list[FranchiseConfig] = field(default_factory=list)
     path: Path | None = None
 
     @property
@@ -142,6 +158,31 @@ def load_study(name: str, directory: Path | None = None) -> StudyConfig:
     if duplicates:
         raise ConfigError(f"{path}: duplicate game_id: {', '.join(duplicates)}")
 
+    known = {g.game_id for g in games}
+    franchises = []
+    for index, raw in enumerate(data.get("franchises") or []):
+        if not isinstance(raw, dict) or not raw.get("franchise_id"):
+            raise ConfigError(f"{path}: franchises[{index}] needs a franchise_id")
+        members = [str(m) for m in (raw.get("members") or [])]
+        unknown = [m for m in members if m not in known]
+        if unknown:
+            raise ConfigError(
+                f"{path}: franchise {raw['franchise_id']} names unknown games: "
+                + ", ".join(unknown)
+            )
+        if len(members) < 2:
+            raise ConfigError(
+                f"{path}: franchise {raw['franchise_id']} needs at least two members"
+            )
+        franchises.append(
+            FranchiseConfig(
+                franchise_id=str(raw["franchise_id"]),
+                title=str(raw.get("title") or raw["franchise_id"]),
+                members=members,
+                notes=raw.get("notes"),
+            )
+        )
+
     window = data.get("window") or {}
     return StudyConfig(
         study=str(data.get("study", name)),
@@ -150,6 +191,7 @@ def load_study(name: str, directory: Path | None = None) -> StudyConfig:
         games=games,
         months_before_first=int(window.get("months_before_first", 12)),
         months_after_last=int(window.get("months_after_last", 6)),
+        franchises=franchises,
         path=path,
     )
 
