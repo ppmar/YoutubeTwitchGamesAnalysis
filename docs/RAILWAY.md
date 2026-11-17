@@ -67,11 +67,15 @@ Service du collecteur → onglet **Settings** :
 
 - **Build** : builder `Dockerfile`, chemin `Dockerfile` à la racine. Railway le détecte
   normalement tout seul.
-- **Cron Schedule** : `30 8 * * *`.
+- **Cron Schedule** : `30 8 * * *` — **posé le 17/11/2026**, la collecte est automatique.
   Les crons Railway sont en **UTC**. Le quota YouTube repart à minuit heure du Pacifique,
   soit 07:00 UTC (heure d'été) ou 08:00 UTC (heure d'hiver) : 08:30 UTC tombe après la
   remise à zéro toute l'année.
-- **Restart Policy** : **Never**.
+  Ce champ n'est pas écrivable par la CLI avec un jeton de projet ; il l'est par la
+  mutation `serviceInstanceUpdate` de l'API GraphQL, ou à la main dans le tableau de bord.
+  **Pour arrêter la collecte, vider ce champ suffit** : la base reste intacte et la
+  collecte reprend où elle s'était arrêtée.
+- **Restart Policy** : **Never** — posée en même temps.
   Le défaut est *On Failure* avec jusqu'à 10 redémarrages — à proscrire ici : une relance
   automatique après échec rejouerait la collecte et brûlerait du quota pour rien.
 - **Pas de domaine public**, **pas de healthcheck** : ce n'est pas un service web, il

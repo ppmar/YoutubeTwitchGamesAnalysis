@@ -44,7 +44,11 @@ ytc status                        # quota restant, avancement par étape
 ytc export --format parquet
 ```
 
-`ytc --help` liste les 13 commandes. Le détail est en section 9 de la spec.
+`ytc --help` liste les commandes. Le détail est en section 9 de la spec.
+
+La collecte tourne **automatiquement** chaque jour à 08:30 UTC, par un service cron
+Railway (`30 8 * * *`). Pour l'arrêter, vider le champ *Cron Schedule* du service :
+la base reste intacte et la collecte reprend où elle s'était arrêtée.
 
 ## Budget de quota
 
