@@ -45,6 +45,17 @@ class GenreModel:
     rows: Any  # the matrix's game table
     cols: Any  # the matrix's tag table
     games_without_weight: int
+    matrix: Any = None  # the TF-IDF matrix itself, for the checks that need it
+
+    def tag_rows(self, tag: str) -> Any:
+        """The games carrying a tag at all — the plain criterion, not a genre."""
+        import numpy as np
+
+        columns = [str(t) for t in self.cols["tag"]]
+        if self.matrix is None or tag not in columns:
+            return np.array([], dtype="int64")
+        column = self.matrix[:, columns.index(tag)]
+        return np.unique(column.tocoo().row) if hasattr(column, "tocoo") else np.nonzero(column)[0]
 
     @property
     def labels(self) -> list[str]:
@@ -142,7 +153,7 @@ def load_model(output_dir: Path, k: int, seed: int | None = None) -> GenreModel:
     return GenreModel(
         k=k, seed=chosen, rel_error=rel_error, W=W, H=H, shares=shares,
         rows=built.rows.reset_index(drop=True), cols=built.cols.reset_index(drop=True),
-        games_without_weight=int(empty.sum()),
+        games_without_weight=int(empty.sum()), matrix=built.matrix,
     )
 
 

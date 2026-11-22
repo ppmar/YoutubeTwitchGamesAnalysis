@@ -62,6 +62,10 @@ pip install -e ".[dev,genres]"     # scikit-learn et scipy, hors image Railway
 ytc genres init-tag-families       # brouillon de config/tag_families.yml
 ytc genres build-matrix            # matrice jeu x tags en TF-IDF
 ytc genres fit --k 10:60:5 --seeds 5   # NMF sur la grille de k
+ytc genres report --k 25               # genres, appartenances, rapport Markdown
+ytc genres select                      # tables finales, une fois k_final choisi
+ytc genres suggest-appids --study battle_royale
+ytc genres check-study --study battle_royale --k 25
 ```
 
 `init-tag-families` écrit les 477 tags en `other`, du plus porté au moins porté :
@@ -92,6 +96,20 @@ dans `fits/`. Réduire la grille d'abord (`--k 10:30:10 --seeds 2`) est raisonna
 Avec `init: nndsvda`, la graine ne fait presque rien bouger : la stabilité
 mesurée vient surtout des sous-échantillons. `init: random` dans
 `config/genres.yml` donne une vraie variation d'une graine à l'autre.
+
+`report --k K` marche pour n'importe quel k de la grille et écrit
+`report_k{K}.md` : les genres, leurs 10 tags et 10 jeux les plus lourds, les
+effectifs par seuil d'appartenance. `select` écrit les tables sur lesquelles
+l'étude se joint (`genre_definition.parquet`, `game_genre.parquet`,
+`genre_tree.csv`) et **refuse de tourner tant que `k_final` est `null`** : le
+choix de k est une décision, pas un défaut.
+
+`suggest-appids` rapproche les noms des jeux de l'étude de ceux de Steam et
+écrit `appid_suggestions.csv` — **sans toucher au YAML ni à la base**. Sur la
+liste battle royale : 42 jeux sur 43 reçoivent au moins un candidat, 28 avec un
+score de 1,0. Les jeux absents de Steam (Fortnite, PUBG Mobile, Garena Free
+Fire…) n'ont que des coïncidences de mots : la commande les signale comme
+douteux, et ils restent à `null`, ce qui est le résultat attendu.
 
 ## La page de suivi
 

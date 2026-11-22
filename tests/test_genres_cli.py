@@ -351,3 +351,55 @@ class TestReportAndSelect:
         assert membership["share"].max() <= 1.0
         assert (fitted["out"] / "genre_tree.csv").is_file()
         assert (fitted["out"] / "report_k3.md").is_file()
+
+
+class TestStudyAndSupply:
+    @pytest.fixture
+    def fitted(self, workspace: dict[str, Path]) -> dict[str, Path]:
+        mapping = write_block_client_data(workspace["client"])
+        write_families(workspace["families"], mapping=mapping)
+        runner.invoke(
+            app,
+            ["genres", "build-matrix", "--config", str(workspace["config"]),
+             "--families", str(workspace["families"])],
+        )
+        runner.invoke(
+            app,
+            ["genres", "fit", "--config", str(workspace["config"]),
+             "--k", "2", "--seeds", "1", "--bootstrap", "1"],
+        )
+        return workspace
+
+    def test_suggest_appids_writes_only_the_csv(self, fitted: dict[str, Path]) -> None:
+        before = sorted(p.name for p in fitted["out"].iterdir())
+        study_file = Path("config/studies/battle_royale.yml")
+        study_before = study_file.read_text(encoding="utf-8")
+
+        result = runner.invoke(
+            app,
+            ["genres", "suggest-appids", "--study", "battle_royale",
+             "--config", str(fitted["config"])],
+        )
+        assert result.exit_code == 0, result.output
+        assert "appid_suggestions.csv" in result.output
+        assert study_file.read_text(encoding="utf-8") == study_before
+        added = {p.name for p in fitted["out"].iterdir()} - set(before)
+        assert added == {"appid_suggestions.csv"}
+
+    def test_check_study_says_when_no_appid_is_set_yet(self, fitted: dict[str, Path]) -> None:
+        result = runner.invoke(
+            app,
+            ["genres", "check-study", "--study", "battle_royale",
+             "--k", "2", "--config", str(fitted["config"])],
+        )
+        assert result.exit_code == 0, result.output
+        assert "not one game of the study carries a steam_appid" in result.output
+
+    @responses.activate
+    def test_none_of_them_reaches_the_api(self, fitted: dict[str, Path]) -> None:
+        for argv in (
+            ["genres", "suggest-appids", "--config", str(fitted["config"])],
+            ["genres", "check-study", "--k", "2", "--config", str(fitted["config"])],
+        ):
+            runner.invoke(app, argv)
+        assert len(responses.calls) == 0

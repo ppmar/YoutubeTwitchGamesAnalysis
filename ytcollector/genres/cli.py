@@ -296,3 +296,132 @@ def select(
         + (", genre_tree.csv as well" if tree else "")
         + f". {model.games_without_weight:,} game(s) carry no genre weight and are left out."
     )
+
+
+StudyOption = Annotated[str, typer.Option("--study", help="Study name, e.g. battle_royale.")]
+
+
+@app.command("suggest-appids")
+@_guard
+def suggest_appids_command(
+    study: StudyOption = "battle_royale",
+    config_path: ConfigOption = None,
+    per_game: Annotated[int, typer.Option("--per-game")] = 5,
+    min_score: Annotated[float, typer.Option("--min-score")] = 0.55,
+) -> None:
+    """Propose a Steam appid for each game of a study (SPEC_GENRES G4).
+
+    Writes a CSV of candidates and nothing else: the study file and the database
+    are the team's to edit, once a human has read the proposals.
+    """
+    from ytcollector.genres.load import display, load_config
+    from ytcollector.genres.study import (
+        CONFIDENT_SCORE,
+        load_study_or_fail,
+        reference_frame,
+        suggest_appids,
+        write_suggestions,
+    )
+
+    _logging()
+    config = load_config(config_path)
+    roster = load_study_or_fail(study)
+    suggestions = suggest_appids(
+        roster, reference_frame(config), per_game=per_game, min_score=min_score
+    )
+    path = write_suggestions(suggestions, config.output_dir)
+
+    best: dict[str, float] = {}
+    for item in suggestions:
+        best[item.game_id] = max(best.get(item.game_id, 0.0), item.score)
+    proposed = set(best)
+    silent = [g.game_id for g in roster.games if g.game_id not in proposed]
+    doubtful = sorted(g for g, value in best.items() if value < CONFIDENT_SCORE)
+    typer.echo(
+        f"suggest-appids: {len(suggestions)} candidate(s) for "
+        f"{len(proposed)}/{len(roster.games)} games, written to "
+        f"{display(config.output_dir)}/{path.name}. Nothing else was touched: copy the "
+        "appid you validate into config/studies/" + study + ".yml yourself."
+    )
+    if silent:
+        typer.echo(
+            f"suggest-appids: no candidate for {', '.join(silent)} — a game with no "
+            "Steam page (a mobile version, Fortnite) simply stays empty."
+        )
+    if doubtful:
+        typer.echo(
+            f"suggest-appids: best candidate below {CONFIDENT_SCORE:g} for "
+            f"{', '.join(doubtful)} — most likely games that are not on Steam at all. "
+            "Read those rows before copying anything."
+        )
+
+
+@app.command("check-study")
+@_guard
+def check_study_command(
+    study: StudyOption = "battle_royale",
+    k: Annotated[int, typer.Option("--k", help="Any k of the grid.")] = 0,
+    config_path: ConfigOption = None,
+) -> None:
+    """Read a study's games through the genres of one k (SPEC_GENRES G4)."""
+    from ytcollector.genres.load import GenresError, load_config
+    from ytcollector.genres.select import available_ks, load_model
+    from ytcollector.genres.study import BATTLE_ROYALE_TAG, check_study, load_study_or_fail
+
+    _logging()
+    config = load_config(config_path)
+    if k < 2:
+        known = available_ks(config.output_dir)
+        raise GenresError(
+            "--k is required and must be a k of the grid"
+            + (f" ({', '.join(str(x) for x in known)})" if known else "; run `ytc genres fit` first")
+            + "."
+        )
+
+    roster = load_study_or_fail(study)
+    model = load_model(config.output_dir, k)
+    found = check_study(model, roster)
+
+    typer.echo(f"check-study: {study} at k={k}, seed {model.seed}.")
+    if not found.with_appid:
+        typer.echo(
+            "check-study: not one game of the study carries a steam_appid yet. "
+            "Run `ytc genres suggest-appids` and fill the validated ones into the "
+            "study file."
+        )
+        return
+
+    for item in found.with_appid:
+        genres = ", ".join(
+            f"{g['label']} ({g['share']:.0%})" for g in item["genres"]
+        ) or "no genre weight"
+        typer.echo(f"  {item['game_name']}: {genres}")
+
+    if found.leading_genre is not None:
+        typer.echo(
+            f"check-study: genre {found.leading_genre} ({found.leading_genre_label}) is "
+            f"dominant for {found.leading_genre_count}/{len(found.with_appid)} of them."
+        )
+        typer.echo(
+            f"check-study: against the plain '{BATTLE_ROYALE_TAG}' tag — the tag is on "
+            f"{found.tag_games:,} games, {found.tag_and_study} of which are in the study; "
+            f"the genre holds {found.genre_outside_study:,} games the study does not list"
+            + (
+                f", and misses {len(found.study_missing_from_genre)} it does: "
+                + ", ".join(found.study_missing_from_genre)
+                if found.study_missing_from_genre
+                else ""
+            )
+            + "."
+        )
+    if found.without_appid:
+        typer.echo(
+            f"check-study: {len(found.without_appid)} game(s) without a steam_appid: "
+            + ", ".join(found.without_appid)
+        )
+    if found.unknown_appid:
+        typer.echo(
+            f"check-study: {len(found.unknown_appid)} appid(s) absent from the matrix "
+            "(below min_total_votes, or not in the export): "
+            + ", ".join(found.unknown_appid)
+        )
