@@ -1,0 +1,14 @@
+# Railway uploads the build context from disk, so the NDA rule has to hold here
+# too — `.dockerignore` governs the build, not the upload (SPEC_GENRES 3).
+data/client/
+data/processed/
+data/interim/
+exports/
+.env
+.env.*
+*.db
+*.sqlite
+*.parquet
+.venv/
+.git/
+.claude/
