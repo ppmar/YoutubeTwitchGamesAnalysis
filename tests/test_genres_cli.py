@@ -292,3 +292,62 @@ class TestFit:
              "--k", "2", "--seeds", "1", "--bootstrap", "1"],
         )
         assert len(responses.calls) == 0
+
+
+class TestReportAndSelect:
+    @pytest.fixture
+    def fitted(self, workspace: dict[str, Path]) -> dict[str, Path]:
+        mapping = write_block_client_data(workspace["client"])
+        write_families(workspace["families"], mapping=mapping)
+        assert runner.invoke(
+            app,
+            ["genres", "build-matrix", "--config", str(workspace["config"]),
+             "--families", str(workspace["families"])],
+        ).exit_code == 0
+        assert runner.invoke(
+            app,
+            ["genres", "fit", "--config", str(workspace["config"]),
+             "--k", "2,3", "--seeds", "2", "--bootstrap", "1"],
+        ).exit_code == 0
+        return workspace
+
+    def test_report_writes_the_markdown_for_any_k_of_the_grid(
+        self, fitted: dict[str, Path]
+    ) -> None:
+        result = runner.invoke(
+            app, ["genres", "report", "--config", str(fitted["config"]), "--k", "3"]
+        )
+        assert result.exit_code == 0, result.output
+        assert "provisional" in result.output
+        text = (fitted["out"] / "report_k3.md").read_text(encoding="utf-8")
+        assert text.startswith("# Genres à k = 3")
+
+    def test_report_without_a_k_lists_the_grid(self, fitted: dict[str, Path]) -> None:
+        result = runner.invoke(app, ["genres", "report", "--config", str(fitted["config"])])
+        assert result.exit_code == 1
+        assert "2, 3" in result.output
+
+    def test_select_refuses_while_k_final_is_null(self, fitted: dict[str, Path]) -> None:
+        result = runner.invoke(app, ["genres", "select", "--config", str(fitted["config"])])
+        assert result.exit_code == 1
+        assert "k_final" in result.output
+        assert not (fitted["out"] / "game_genre.parquet").exists()
+
+    def test_select_writes_the_tables_once_k_final_is_set(
+        self, fitted: dict[str, Path]
+    ) -> None:
+        import pandas as pd
+
+        config = yaml.safe_load(fitted["config"].read_text())
+        config["selection"] = {"k_final": 3, "membership_thresholds": [0.2, 0.5]}
+        fitted["config"].write_text(yaml.safe_dump(config), encoding="utf-8")
+
+        result = runner.invoke(app, ["genres", "select", "--config", str(fitted["config"])])
+        assert result.exit_code == 0, result.output
+        definition = pd.read_parquet(fitted["out"] / "genre_definition.parquet")
+        membership = pd.read_parquet(fitted["out"] / "game_genre.parquet")
+        assert len(definition) == 3
+        assert "n_share_ge_0p5" in definition.columns
+        assert membership["share"].max() <= 1.0
+        assert (fitted["out"] / "genre_tree.csv").is_file()
+        assert (fitted["out"] / "report_k3.md").is_file()

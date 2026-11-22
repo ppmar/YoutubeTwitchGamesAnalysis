@@ -221,3 +221,78 @@ def fit(
             "indicators with PulluP before setting k_final — a k that is not stable "
             "must not be interpreted."
         )
+
+
+@app.command("report")
+@_guard
+def report(
+    config_path: ConfigOption = None,
+    k: Annotated[int, typer.Option("--k", help="Any k of the grid.")] = 0,
+    seed: Annotated[
+        int | None, typer.Option("--seed", help="Force a seed (default: the best one).")
+    ] = None,
+) -> None:
+    """Write report_k{K}.md for one k of the grid (SPEC_GENRES G3)."""
+    from ytcollector.genres.load import GenresError, display, load_config
+    from ytcollector.genres.select import (
+        available_ks,
+        load_model,
+        thresholds_of,
+        write_report,
+    )
+
+    _logging()
+    config = load_config(config_path)
+    if k < 2:
+        known = available_ks(config.output_dir)
+        raise GenresError(
+            "--k is required and must be a k of the grid"
+            + (f" ({', '.join(str(x) for x in known)})" if known else "; run `ytc genres fit` first")
+            + "."
+        )
+
+    model = load_model(config.output_dir, k, seed=seed)
+    path = write_report(model, config.output_dir, thresholds_of(config))
+    typer.echo(
+        f"report: k={model.k}, seed {model.seed} (relative error {model.rel_error:.4f}), "
+        f"{model.k} genres over {len(model.rows):,} games. Written to "
+        f"{display(config.output_dir)}/{path.name}. The genre names are provisional."
+    )
+
+
+@app.command("select")
+@_guard
+def select(
+    config_path: ConfigOption = None,
+) -> None:
+    """Write the final tables for k_final (SPEC_GENRES G3).
+
+    Refuses while ``k_final`` is null: which k the study runs on is a decision,
+    not a default.
+    """
+    from ytcollector.genres.load import display, load_config
+    from ytcollector.genres.select import (
+        final_k,
+        load_model,
+        thresholds_of,
+        write_report,
+        write_tables,
+        write_tree,
+    )
+
+    _logging()
+    config = load_config(config_path)
+    k = final_k(config)
+    thresholds = thresholds_of(config)
+
+    model = load_model(config.output_dir, k)
+    write_tables(model, config.output_dir, thresholds)
+    tree = write_tree(config.output_dir)
+    write_report(model, config.output_dir, thresholds)
+
+    typer.echo(
+        f"select: k_final={k}, seed {model.seed}. genre_definition.parquet and "
+        f"game_genre.parquet written to {display(config.output_dir)}"
+        + (", genre_tree.csv as well" if tree else "")
+        + f". {model.games_without_weight:,} game(s) carry no genre weight and are left out."
+    )
