@@ -47,6 +47,26 @@ app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
 templates = Jinja2Templates(directory=str(HERE / "templates"))
 
 
+@lru_cache(maxsize=1)
+def asset_version() -> str:
+    """A short digest of the served assets, appended to their URLs.
+
+    The page is rendered per request, but the browser keeps `app.js` and
+    `app.css` as long as its heuristics allow: after a deploy that means new
+    markup driven by an old script, which leaves every panel open at once
+    because the tab code is not there yet. A version in the query string makes
+    the URL change whenever the file does.
+    """
+    import hashlib
+
+    digest = hashlib.sha256()
+    for name in sorted((HERE / "static").glob("*")):
+        if name.is_file():
+            digest.update(name.name.encode())
+            digest.update(name.read_bytes())
+    return digest.hexdigest()[:10]
+
+
 def fr(value: Any) -> str:
     """Group thousands with a narrow no-break space, as French typography does."""
     try:
@@ -438,7 +458,9 @@ def healthz() -> dict[str, str]:
 def index(request: Request):  # type: ignore[no-untyped-def]
     with session_scope() as session:
         state = collect_state(session, current_study())
-    return templates.TemplateResponse(request, "index.html", {"state": state})
+    return templates.TemplateResponse(
+        request, "index.html", {"state": state, "assets": asset_version()}
+    )
 
 
 def serve(host: str = "0.0.0.0", port: int | None = None) -> None:

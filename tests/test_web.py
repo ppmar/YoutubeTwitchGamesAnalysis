@@ -171,3 +171,41 @@ class TestExports:
         # empty, or the page would offer a file with nothing in it.
         body = client.get("/export/joined.csv").text
         assert len(body.splitlines()) > 100
+
+
+class TestAssetVersioning:
+    """A deploy must not leave an old script driving new markup.
+
+    Without a version in the URL the browser keeps `app.js` for as long as its
+    heuristics allow; the page then renders the tab markup with a script that
+    has no tab code, and every panel shows at once.
+    """
+
+    def test_the_asset_urls_carry_a_version(self, client: TestClient) -> None:
+        import re
+
+        body = client.get("/").text
+        assert re.search(r'/static/app\.css\?v=[0-9a-f]{10}"', body)
+        assert re.search(r'/static/app\.js\?v=[0-9a-f]{10}"', body)
+
+    def test_the_version_follows_the_file_contents(self, tmp_path: object) -> None:
+        from ytcollector.web import app as web
+
+        first = web.asset_version()
+        script = web.HERE / "static" / "app.js"
+        original = script.read_bytes()
+        try:
+            script.write_bytes(original + b"\n/* changed */\n")
+            web.asset_version.cache_clear()
+            assert web.asset_version() != first
+        finally:
+            script.write_bytes(original)
+            web.asset_version.cache_clear()
+        assert web.asset_version() == first
+
+    def test_the_versioned_url_still_serves_the_file(self, client: TestClient) -> None:
+        from ytcollector.web import app as web
+
+        response = client.get(f"/static/app.js?v={web.asset_version()}")
+        assert response.status_code == 200
+        assert "Collecteur Procom" in response.text
