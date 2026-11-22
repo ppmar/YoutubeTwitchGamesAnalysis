@@ -10,6 +10,9 @@
 #   yt_query      the `q` sent to search.list; tighten it if title_match stays under 70%
 #   match_terms   looked up in title, tags and description to confirm a video
 #   release_date  to be filled in by the team (SPEC section 14)
+#   steam_appid   optional Steam appid, the join to the genre tables; filled in by hand
+#                 from `ytc genres suggest-appids` (SPEC_GENRES section 7). Games with
+#                 no Steam page (the mobile versions, Fortnite) stay empty, as expected.
 #   valid_from    Twitch months before this one belong to another game (Warzone)
 #   role          precursor | leader | follower | mode
 #   enabled       set to false to leave a game out of collection

@@ -56,6 +56,9 @@ class Game(Base):
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
 
     release_date: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    # The Steam appid, which joins this roster to the genre tables. Hand-entered
+    # from `ytc genres suggest-appids`, so `prepare-games` leaves it alone once set.
+    steam_appid: Mapped[int | None] = mapped_column(Integer, nullable=True)
     # Twitch months before this one belong to another game or another mode.
     valid_from: Mapped[str | None] = mapped_column(String(7), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)

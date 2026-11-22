@@ -19,7 +19,7 @@ from ytcollector.models import Game, utcnow
 from ytcollector.textnorm import grouping_key, normalize_name
 
 # Set by hand once the first results come back; never overwritten afterwards.
-MANUAL_FIELDS = ("yt_query", "match_terms", "exclude_terms", "enabled")
+MANUAL_FIELDS = ("yt_query", "match_terms", "exclude_terms", "enabled", "steam_appid")
 
 
 @dataclass
@@ -142,6 +142,7 @@ def prepare_games(
                 match_terms=list(config.match_terms),
                 exclude_terms=list(config.exclude_terms),
                 enabled=config.enabled,
+                steam_appid=config.steam_appid,
             )
             session.add(row)
             result.created += 1
@@ -155,6 +156,12 @@ def prepare_games(
                 row.exclude_terms = list(config.exclude_terms)
             if "enabled" in forced:
                 row.enabled = config.enabled
+            if "steam_appid" in forced:
+                row.steam_appid = config.steam_appid
+            elif row.steam_appid is None and config.steam_appid is not None:
+                # Filling the YAML in is how the appid arrives; it is only ever
+                # overwritten on request, like a hand-tuned query.
+                row.steam_appid = config.steam_appid
             if row.exclude_terms is None:
                 # Added after the first rows were written.
                 row.exclude_terms = list(config.exclude_terms)

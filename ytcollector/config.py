@@ -67,6 +67,9 @@ class GameConfig:
     release_date: str | None = None
     valid_from: str | None = None
     notes: str | None = None
+    # Public, and filled in by hand from `ytc genres suggest-appids`. Games with
+    # no Steam page (mobile versions, Fortnite) stay None, which is expected.
+    steam_appid: int | None = None
 
 
 @dataclass(frozen=True)
@@ -142,6 +145,7 @@ def _game_from_mapping(raw: Any, index: int, source: Path) -> GameConfig:
         release_date=raw.get("release_date"),
         valid_from=raw.get("valid_from"),
         notes=raw.get("notes"),
+        steam_appid=int(raw["steam_appid"]) if raw.get("steam_appid") is not None else None,
     )
 
 
