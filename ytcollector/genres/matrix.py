@@ -69,12 +69,13 @@ def build_matrix(
     # 2. then the threshold, 3. then the families.
     kept = pairs[pairs["tf"] >= config.min_tag_share].copy()
     kept["family"] = [families.family_of(str(tag)) for tag in kept["tag"]]
-    used = set(families.used_for_factorization)
-    kept = kept[kept["family"].isin(used)]
+    if not families.uses_every_family:
+        kept = kept[[families.keeps(str(tag)) for tag in kept["tag"]]]
     if kept.empty:
         raise GenresError(
             "no (game, tag) pair survived min_tag_share and the family filter; "
-            f"used_for_factorization is {sorted(used)}"
+            f"used_for_factorization is {sorted(families.used_for_factorization)}. "
+            "Set it to [all] to factorise on every tag, before the families are settled."
         )
 
     # Columns in a stable order, so two runs give the same matrix.

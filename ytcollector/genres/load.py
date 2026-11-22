@@ -19,6 +19,9 @@ log = logging.getLogger(__name__)
 TAGS_FILE = "steam_tags.csv"
 REFERENCE_FILE = "steam_reference.csv"
 OTHER_FAMILY = "other"
+# `used_for_factorization: [all]` keeps every tag, which is what lets the
+# pipeline run before the team has classified anything.
+ALL_FAMILIES = "all"
 
 
 class GenresError(RuntimeError):
@@ -99,8 +102,16 @@ class TagFamilies:
     used_for_factorization: list[str]
     tags: dict[str, str]
 
+    @property
+    def uses_every_family(self) -> bool:
+        return ALL_FAMILIES in self.used_for_factorization
+
     def family_of(self, tag: str) -> str:
         return self.tags.get(tag, OTHER_FAMILY)
+
+    def keeps(self, tag: str) -> bool:
+        """Whether a tag becomes a column of the matrix."""
+        return self.uses_every_family or self.family_of(tag) in set(self.used_for_factorization)
 
     def check_covers(self, tags: list[str]) -> None:
         """Fail with the full list of tags the file does not classify."""
@@ -140,7 +151,7 @@ def load_tag_families(path: Path | None = None) -> TagFamilies:
         )
     if not used:
         raise GenresError(f"{display(where)}: 'used_for_factorization' must name a family")
-    unknown_used = [f for f in used if f not in families]
+    unknown_used = [f for f in used if f not in families and f != ALL_FAMILIES]
     if unknown_used:
         raise GenresError(
             f"{display(where)}: used_for_factorization names undeclared families: "

@@ -8,7 +8,10 @@
 # `ytc genres build-matrix` fails while a tag is missing from this file.
 
 families: [gameplay, players, visuals, themes, business, other]
-used_for_factorization: [gameplay, players]
+# [all] factorises on every tag, which is what makes the pipeline run before
+# anything is classified. Narrow it to [gameplay, players] once the families
+# below are filled in (SPEC_GENRES section 12).
+used_for_factorization: [all]
 
 tags:
   "Singleplayer": other

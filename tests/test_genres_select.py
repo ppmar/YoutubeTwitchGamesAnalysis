@@ -24,6 +24,7 @@ from ytcollector.genres.select import (
     final_k,
     game_genre,
     genre_definition,
+    genre_name,
     hierarchy,
     label_of,
     load_model,
@@ -179,8 +180,9 @@ class TestEachBlockBecomesAGenre:
         model = load_model(fitted, 4)
         definition = genre_definition(model)
         assert list(definition.columns) == [
-            "genre_id", "label", "top_tags", "top_games", "n_dominant"
+            "genre_id", "name", "label", "top_tags", "top_games", "n_dominant"
         ]
+        assert list(definition["name"]) == ["Genre 1", "Genre 2", "Genre 3", "Genre 4"]
         assert len(definition) == 4
         assert definition["n_dominant"].sum() == len(model.rows)
         assert all(len(row) <= 10 for row in definition["top_tags"])
@@ -249,9 +251,9 @@ class TestTheReport:
         model = load_model(fitted, 4)
         text = report_markdown(model, THRESHOLDS, hierarchy(fitted))
         assert text.startswith("# Genres à k = 4")
-        assert "provisoires" in text
+        assert "numérotés, pas nommés" in text
         assert "part ≥ 0.2" in text
-        for genre in range(4):
+        for genre in range(1, 5):
             assert f"### Genre {genre} —" in text
         assert "accord de confidentialité" in text
 
@@ -299,3 +301,20 @@ class TestSelectRefusesToGuess:
 
         with pytest.raises(GenresError):
             final_k(load_config())
+
+
+class TestGenreNames:
+    """Numbered, not named: nothing has been decided about what a genre is."""
+
+    def test_they_are_numbered_from_one(self) -> None:
+        assert genre_name(0) == "Genre 1"
+        assert genre_name(24) == "Genre 25"
+
+    def test_the_tags_stay_beside_the_number(self, fitted: Path) -> None:
+        from ytcollector.genres.select import genre_definition
+
+        definition = genre_definition(load_model(fitted, 4))
+        for _, row in definition.iterrows():
+            assert row["name"].startswith("Genre ")
+            assert " + " in row["label"]
+            assert len(row["top_tags"]) > 0

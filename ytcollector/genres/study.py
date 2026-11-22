@@ -175,8 +175,10 @@ def check_study(model: Any, study: Any, *, tag: str = BATTLE_ROYALE_TAG, top: in
     """Read the study through the genres, and against the plain tag criterion."""
     import numpy as np
 
+    from ytcollector.genres.select import genre_name
+
     by_appid = {int(a): i for i, a in enumerate(model.rows["appid"])}
-    labels = model.labels
+    labels = [f"{genre_name(j)} ({label})" for j, label in enumerate(model.labels)]
 
     with_appid: list[dict[str, Any]] = []
     without: list[str] = []

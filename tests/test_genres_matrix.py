@@ -473,3 +473,58 @@ class TestTheConfiguration:
     ) -> None:
         with pytest.raises(GenresError, match="init-tag-families"):
             load_tag_families(tmp_path / "absent.yml")
+
+
+class TestFactorisingOnEveryTag:
+    """`used_for_factorization: [all]` runs the pipeline before classification.
+
+    Without it, a freshly generated tag_families.yml has every tag in `other`
+    and nothing survives the family filter.
+    """
+
+    def test_all_keeps_every_tag(self, config: GenresConfig, tmp_path: Path) -> None:
+        families = load_tag_families(
+            write_families(
+                tmp_path / "all.yml",
+                mapping=dict.fromkeys(FAMILIES, "other"),
+                used="all",
+            )
+        )
+        result = build_matrix(config, families, load_game_tags(config, ignore_expected=True))
+        # Pixel Graphics is a `visuals` tag and would be dropped by a narrow list.
+        assert set(result.cols["tag"]) == set(FAMILIES)
+
+    def test_a_narrow_list_still_filters(self, config: GenresConfig, families: TagFamilies) -> None:
+        result = build_matrix(config, families, load_game_tags(config, ignore_expected=True))
+        assert "Pixel Graphics" not in set(result.cols["tag"])
+
+    def test_an_unclassified_set_with_all_is_usable(
+        self, config: GenresConfig, tmp_path: Path
+    ) -> None:
+        """What `init-tag-families` writes, straight out of the box."""
+        families = load_tag_families(
+            write_families(tmp_path / "draft.yml", mapping=dict.fromkeys(FAMILIES, "other"), used="all")
+        )
+        result = build_matrix(config, families, load_game_tags(config, ignore_expected=True))
+        assert result.shape[0] > 0 and result.shape[1] > 0
+
+    def test_a_narrow_list_over_unclassified_tags_says_what_to_do(
+        self, config: GenresConfig, tmp_path: Path
+    ) -> None:
+        families = load_tag_families(
+            write_families(
+                tmp_path / "narrow.yml",
+                mapping=dict.fromkeys(FAMILIES, "other"),
+                used="gameplay",
+            )
+        )
+        with pytest.raises(GenresError, match=r"\[all\]"):
+            build_matrix(config, families, load_game_tags(config, ignore_expected=True))
+
+    def test_the_shipped_file_runs_without_any_classification(self) -> None:
+        from ytcollector.genres.load import load_tag_families as shipped
+
+        families = shipped()
+        assert families.uses_every_family
+        assert set(families.tags.values()) == {"other"}
+        assert families.keeps("Battle Royale")

@@ -103,6 +103,15 @@ def memberships(W: Any) -> tuple[Any, Any]:
     return shares, empty
 
 
+def genre_name(genre_id: int) -> str:
+    """What a genre is called before anyone has named it: "Genre 1", "Genre 2".
+
+    The tags stay beside it in ``label``. A number says plainly that nothing has
+    been decided, where a name made of tags can be mistaken for a finding.
+    """
+    return f"Genre {genre_id + 1}"
+
+
 def label_of(tag_weights: Any, cols: Any, count: int = LABEL_TAGS) -> str:
     """A genre's provisional name: its heaviest tags, joined by ' + '."""
     import numpy as np
@@ -185,6 +194,7 @@ def genre_definition(model: GenreModel, top_tags: int = TOP_TAGS, top_games: int
         rows.append(
             {
                 "genre_id": j,
+                "name": genre_name(j),
                 "label": label_of(model.H[j], model.cols),
                 "top_tags": tags,
                 "top_games": games,
@@ -335,9 +345,10 @@ def report_markdown(model: GenreModel, thresholds: list[float], tree: Any | None
         (f"Graine retenue : {model.seed} (erreur relative {model.rel_error:.4f}). "
         f"{_fr(len(model.rows))} jeux, {_fr(len(model.cols))} tags."),
         "",
-        ("Les noms de genres sont **provisoires** : ce sont les trois tags les plus "
-        "lourds, pas une dénomination validée. Un k peu stable ne doit pas être "
-        "interprété — lire `k_selection.csv` avant ce rapport."),
+        ("Les genres sont **numérotés, pas nommés** : « Genre 1 », « Genre 2 »… et la "
+        "colonne suivante donne leurs trois tags les plus lourds. Nommer un genre est une "
+        "décision de l'équipe et de PulluP. Un k peu stable ne doit pas être interprété — "
+        "lire `k_selection.csv` avant ce rapport."),
         "",
         "## Vue d'ensemble",
         "",
@@ -349,18 +360,18 @@ def report_markdown(model: GenreModel, thresholds: list[float], tree: Any | None
         "",
     ]
 
-    header = ["genre", "nom provisoire", "jeux dominants"]
+    header = ["genre", "tags dominants", "jeux dominants"]
     header += [f"part ≥ {tau:g}" for tau in thresholds]
     lines.append("| " + " | ".join(header) + " |")
     lines.append("|" + "---|" * len(header))
     for _, row in merged.iterrows():
-        cells = [str(int(row["genre_id"])), str(row["label"]), _fr(int(row["n_dominant"]))]
+        cells = [str(row["name"]), str(row["label"]), _fr(int(row["n_dominant"]))]
         cells += [_fr(int(row[threshold_column(tau)])) for tau in thresholds]
         lines.append("| " + " | ".join(cells) + " |")
 
     lines += ["", "## Détail par genre", ""]
     for _, row in merged.iterrows():
-        lines.append(f"### Genre {int(row['genre_id'])} — {row['label']}")
+        lines.append(f"### {row['name']} — {row['label']}")
         lines.append("")
         tags = ", ".join(f"{t['tag']} ({t['weight']:.2f})" for t in row["top_tags"])
         lines.append(f"**Tags** : {tags}")
@@ -380,7 +391,7 @@ def report_markdown(model: GenreModel, thresholds: list[float], tree: Any | None
                 ):
                     continue
                 lines.append(
-                    f"| {row.genre_id} | k={int(row.parent_k)} genre "
+                    f"| {genre_name(int(row.genre_id))} | k={int(row.parent_k)} genre "
                     f"{int(row.parent_genre_id)} | {row.similarity:.2f} |"
                 )
             lines.append("")
