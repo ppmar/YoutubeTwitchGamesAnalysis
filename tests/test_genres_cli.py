@@ -395,11 +395,30 @@ class TestStudyAndSupply:
         assert result.exit_code == 0, result.output
         assert "not one game of the study carries a steam_appid" in result.output
 
+    def test_supply_writes_both_tables(self, fitted: dict[str, Path]) -> None:
+        import pandas as pd
+
+        result = runner.invoke(
+            app, ["genres", "supply", "--k", "2", "--config", str(fitted["config"])]
+        )
+        assert result.exit_code == 0, result.output
+        assert "never imputed" in result.output
+        month = pd.read_parquet(fitted["out"] / "genre_supply_month.parquet")
+        year = pd.read_parquet(fitted["out"] / "genre_supply_year.parquet")
+        assert set(month["genre_id"]) <= {0, 1}
+        assert year["n_releases_dominant"].sum() == month["n_releases_dominant"].sum()
+
+    def test_supply_needs_a_k_of_the_grid(self, fitted: dict[str, Path]) -> None:
+        result = runner.invoke(app, ["genres", "supply", "--config", str(fitted["config"])])
+        assert result.exit_code == 1
+        assert "--k is required" in result.output
+
     @responses.activate
     def test_none_of_them_reaches_the_api(self, fitted: dict[str, Path]) -> None:
         for argv in (
             ["genres", "suggest-appids", "--config", str(fitted["config"])],
             ["genres", "check-study", "--k", "2", "--config", str(fitted["config"])],
+            ["genres", "supply", "--k", "2", "--config", str(fitted["config"])],
         ):
             runner.invoke(app, argv)
         assert len(responses.calls) == 0

@@ -66,6 +66,7 @@ ytc genres report --k 25               # genres, appartenances, rapport Markdown
 ytc genres select                      # tables finales, une fois k_final choisi
 ytc genres suggest-appids --study battle_royale
 ytc genres check-study --study battle_royale --k 25
+ytc genres supply --k 25               # sorties par genre, par mois et par an
 ```
 
 `init-tag-families` écrit les 477 tags en `other`, du plus porté au moins porté :
@@ -110,6 +111,12 @@ liste battle royale : 42 jeux sur 43 reçoivent au moins un candidat, 28 avec un
 score de 1,0. Les jeux absents de Steam (Fortnite, PUBG Mobile, Garena Free
 Fire…) n'ont que des coïncidences de mots : la commande les signale comme
 douteux, et ils restent à `null`, ce qui est le résultat attendu.
+
+`supply --k K` compte les sorties par genre de deux façons : `n_releases_weighted`
+répartit chaque jeu au prorata de ses parts, `n_releases_dominant` le compte en
+entier dans son genre principal. Attention : l'export écrit **9999** quand il n'a
+pas de date — 46 892 jeux, soit 22 % du catalogue. Ces jeux sont comptés à part
+et jamais imputés (149 078 datés contre 45 033 sans date exploitable).
 
 ## La page de suivi
 

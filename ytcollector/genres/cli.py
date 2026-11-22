@@ -425,3 +425,41 @@ def check_study_command(
             "(below min_total_votes, or not in the export): "
             + ", ".join(found.unknown_appid)
         )
+
+
+@app.command("supply")
+@_guard
+def supply_command(
+    k: Annotated[int, typer.Option("--k", help="Any k of the grid.")] = 0,
+    config_path: ConfigOption = None,
+) -> None:
+    """Count releases per genre, by month and by year (SPEC_GENRES G5)."""
+    from ytcollector.genres.load import GenresError, display, load_config
+    from ytcollector.genres.select import available_ks, load_model
+    from ytcollector.genres.supply import genre_supply, write_supply
+
+    _logging()
+    config = load_config(config_path)
+    if k < 2:
+        known = available_ks(config.output_dir)
+        raise GenresError(
+            "--k is required and must be a k of the grid"
+            + (f" ({', '.join(str(x) for x in known)})" if known else "; run `ytc genres fit` first")
+            + "."
+        )
+
+    model = load_model(config.output_dir, k)
+    supply = genre_supply(model)
+    write_supply(supply, config.output_dir)
+
+    span = ""
+    if not supply.by_month.empty:
+        first, last = supply.by_month["year"].min(), supply.by_month["year"].max()
+        span = f", {first}–{last}"
+    typer.echo(
+        f"supply: k={k}, {supply.games_dated:,} dated game(s) spread over {model.k} "
+        f"genres{span}. {supply.games_undated:,} game(s) have no usable release date "
+        "and are left out, never imputed. Written to "
+        f"{display(config.output_dir)}: genre_supply_month.parquet, "
+        "genre_supply_year.parquet."
+    )
