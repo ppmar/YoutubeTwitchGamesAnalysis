@@ -6,6 +6,8 @@
 *.key
 
 # Data exports and local artifacts (never commit collected data)
+# Client data under NDA — never commit, never push
+data/client/
 exports/
 data/interim/
 data/processed/

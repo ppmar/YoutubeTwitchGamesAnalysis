@@ -8,6 +8,7 @@
 docs/
 tests/
 exports/
+data/client/
 __pycache__/
 *.py[cod]
 .venv/
