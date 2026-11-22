@@ -61,6 +61,7 @@ versionné ni déployé, et `ytc daily` n'y touche jamais.
 pip install -e ".[dev,genres]"     # scikit-learn et scipy, hors image Railway
 ytc genres init-tag-families       # brouillon de config/tag_families.yml
 ytc genres build-matrix            # matrice jeu x tags en TF-IDF
+ytc genres fit --k 10:60:5 --seeds 5   # NMF sur la grille de k
 ```
 
 `init-tag-families` écrit les 477 tags en `other`, du plus porté au moins porté :
@@ -74,6 +75,23 @@ Réglages dans `config/genres.yml` : `min_total_votes` (défaut 100) et
 `min_tag_share` (défaut 0,02). Les deux changent l'IDF, donc les genres.
 Sorties dans `data/processed/genres/`, lisibles dans l'onglet *Matrice jeu × tags*
 de la page de suivi.
+
+`fit` ajuste chaque k avec plusieurs graines et plusieurs sous-échantillons à 80 %,
+écrit un `fits/k{k}_s{graine}.npz` par ajustement et récapitule dans
+`k_selection.csv` : erreur relative (moyenne et écart-type), stabilité (ARI moyen
+entre partitions dominantes), corrélation cophénétique du consensus et cohérence
+NPMI des 10 premiers tags. Aucun de ces quatre chiffres ne choisit `k_final` :
+c'est une lecture à faire avec PulluP.
+
+Ordres de grandeur mesurés sur la matrice complète (194 111 jeux × 477 tags, un
+cœur) : 17 s pour un ajustement à k = 10, 1 min 40 à k = 30, 5 min à k = 60, plus
+~25 s d'indicateurs par k. La grille par défaut (11 valeurs de k, 5 graines et
+5 sous-échantillons) demande donc **plusieurs heures** et de l'ordre du gigaoctet
+dans `fits/`. Réduire la grille d'abord (`--k 10:30:10 --seeds 2`) est raisonnable.
+
+Avec `init: nndsvda`, la graine ne fait presque rien bouger : la stabilité
+mesurée vient surtout des sous-échantillons. `init: random` dans
+`config/genres.yml` donne une vraie variation d'une graine à l'autre.
 
 ## La page de suivi
 

@@ -28,6 +28,10 @@ matrix:
 # Milestone G2. Left at scikit-learn's defaults until the team compares them.
 nmf:
   k_grid: "10:60:5"
+  # nndsvda is what the spec asks for, and it is deterministic: every seed then
+  # gives the same factorisation and stability rests on the subsamples. Set this
+  # to `random` to make the seeds vary as well.
+  init: nndsvda
   seeds: 5
   n_bootstrap: 5
   bootstrap_fraction: 0.8

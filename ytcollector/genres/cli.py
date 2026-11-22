@@ -137,3 +137,87 @@ def build_matrix(
         f"Written to {display(config.output_dir)} — derived from client data, "
         "never commit it."
     )
+
+
+@app.command("fit")
+@_guard
+def fit(
+    config_path: ConfigOption = None,
+    k: Annotated[
+        str | None,
+        typer.Option("--k", help="Grid of k: start:stop:step, a list, or one value."),
+    ] = None,
+    seeds: Annotated[
+        int | None, typer.Option("--seeds", help="Seeds per k (default: 5).")
+    ] = None,
+    bootstrap: Annotated[
+        int | None,
+        typer.Option("--bootstrap", help="Subsample fits per k, for stability (default: 5)."),
+    ] = None,
+    max_iter: Annotated[int | None, typer.Option("--max-iter")] = None,
+    beta_loss: Annotated[
+        str | None, typer.Option("--beta-loss", help="frobenius or kullback-leibler.")
+    ] = None,
+    alpha_w: Annotated[
+        float | None, typer.Option("--alpha-w", help="L1 penalty weight on W.")
+    ] = None,
+    l1_ratio: Annotated[float | None, typer.Option("--l1-ratio")] = None,
+) -> None:
+    """Fit NMF over a grid of k and write k_selection.csv (SPEC_GENRES G2)."""
+    from dataclasses import replace
+
+    from ytcollector.genres.load import display, load_config
+    from ytcollector.genres.matrix import load_matrix
+    from ytcollector.genres.nmf import (
+        NmfParams,
+        best_k,
+        fit_grid,
+        parse_grid,
+        write_k_selection,
+    )
+
+    _logging()
+    config = load_config(config_path)
+    built = load_matrix(config.output_dir)
+
+    params = NmfParams.from_config(config)
+    overrides = {
+        "max_iter": max_iter,
+        "beta_loss": beta_loss,
+        "alpha_W": alpha_w,
+        "l1_ratio": l1_ratio,
+    }
+    params = replace(params, **{key: v for key, v in overrides.items() if v is not None})
+
+    grid = parse_grid(k, default=str(config.nmf.get("k_grid", "10:60:5")))
+    n_seeds = seeds if seeds is not None else int(config.nmf.get("seeds", 5))
+    n_bootstrap = bootstrap if bootstrap is not None else int(config.nmf.get("n_bootstrap", 5))
+    fraction = float(config.nmf.get("bootstrap_fraction", 0.8))
+
+    typer.echo(
+        f"fit: {len(grid)} value(s) of k ({grid[0]}..{grid[-1]}), {n_seeds} seed(s) and "
+        f"{n_bootstrap} subsample(s) each, on {built.shape[0]:,} games x "
+        f"{built.shape[1]:,} tags. Loss {params.beta_loss}, alpha_W {params.alpha_W}."
+    )
+    reports = fit_grid(
+        built.matrix,
+        ks=grid,
+        seeds=n_seeds,
+        params=params,
+        n_bootstrap=n_bootstrap,
+        bootstrap_fraction=fraction,
+        output_dir=config.output_dir,
+    )
+    write_k_selection(reports, config.output_dir)
+
+    suggestion = best_k(reports)
+    typer.echo(
+        f"fit: {len(reports)} value(s) of k scored, written to "
+        f"{display(config.output_dir)}/k_selection.csv."
+    )
+    if suggestion is not None:
+        typer.echo(
+            f"fit: k={suggestion} is the most stable of the grid. Read the four "
+            "indicators with PulluP before setting k_final — a k that is not stable "
+            "must not be interpreted."
+        )

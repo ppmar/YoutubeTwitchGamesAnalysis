@@ -189,3 +189,106 @@ class TestItStaysOutOfTheWay:
         listing = runner.invoke(app, ["genres", "--help"]).output
         assert "init-tag-families" in listing
         assert "build-matrix" in listing
+
+
+def write_block_client_data(directory: Path, games: int = 24, tags: int = 6) -> dict[str, str]:
+    """A client export big enough to factorise: two blocks of tags."""
+    import numpy as np
+    import pandas as pd
+
+    rng = np.random.default_rng(4)
+    rows = []
+    for game in range(games):
+        block = game % 2
+        for tag in range(block * (tags // 2), block * (tags // 2) + tags // 2):
+            rows.append((int(rng.integers(30, 300)), f"Tag {tag}", 500 + game))
+    directory.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame(rows, columns=["nb", "tag", "appid"]).to_csv(
+        directory / "steam_tags.csv", index=False
+    )
+    pd.DataFrame(
+        {
+            "appid": [500 + g for g in range(games)],
+            "name": [f"Jeu {g}" for g in range(games)],
+            "releaseDate": ["2020-01-01"] * games,
+        }
+    ).to_csv(directory / "steam_reference.csv", index=False)
+    return {f"Tag {i}": "gameplay" for i in range(tags)}
+
+
+class TestFit:
+    @pytest.fixture
+    def built(self, workspace: dict[str, Path]) -> dict[str, Path]:
+        """A matrix on disk, which is what `fit` reads."""
+        mapping = write_block_client_data(workspace["client"])
+        write_families(workspace["families"], mapping=mapping)
+        result = runner.invoke(
+            app,
+            ["genres", "build-matrix",
+             "--config", str(workspace["config"]),
+             "--families", str(workspace["families"])],
+        )
+        assert result.exit_code == 0, result.output
+        return workspace
+
+    def test_it_scores_every_k_of_the_grid(self, built: dict[str, Path]) -> None:
+        import pandas as pd
+
+        result = runner.invoke(
+            app,
+            ["genres", "fit", "--config", str(built["config"]),
+             "--k", "2,3", "--seeds", "2", "--bootstrap", "2"],
+        )
+        assert result.exit_code == 0, result.output
+        frame = pd.read_csv(built["out"] / "k_selection.csv")
+        assert list(frame["k"]) == [2, 3]
+        assert (built["out"] / "fits" / "k2_s0.npz").is_file()
+
+    def test_it_suggests_the_most_stable_k_without_deciding(
+        self, built: dict[str, Path]
+    ) -> None:
+        result = runner.invoke(
+            app,
+            ["genres", "fit", "--config", str(built["config"]),
+             "--k", "2", "--seeds", "2", "--bootstrap", "1"],
+        )
+        assert result.exit_code == 0, result.output
+        assert "most stable" in result.output
+        assert "before setting k_final" in result.output
+
+    def test_a_grid_that_makes_no_sense_is_a_message(self, built: dict[str, Path]) -> None:
+        result = runner.invoke(
+            app, ["genres", "fit", "--config", str(built["config"]), "--k", "nonsense"]
+        )
+        assert result.exit_code == 1
+        assert "Traceback" not in result.output
+        assert "k grid" in result.output
+
+    def test_it_says_to_build_the_matrix_first(self, workspace: dict[str, Path]) -> None:
+        result = runner.invoke(
+            app, ["genres", "fit", "--config", str(workspace["config"]), "--k", "2"]
+        )
+        assert result.exit_code == 1
+        assert "build-matrix" in result.output
+
+    def test_a_k_wider_than_the_matrix_is_refused_with_the_limit(
+        self, built: dict[str, Path]
+    ) -> None:
+        """nndsvda needs k <= min(rows, tags), and a subsample has fewer rows."""
+        result = runner.invoke(
+            app,
+            ["genres", "fit", "--config", str(built["config"]),
+             "--k", "40", "--seeds", "1", "--bootstrap", "1"],
+        )
+        assert result.exit_code == 1
+        assert "Traceback" not in result.output
+        assert "k cannot exceed" in result.output
+
+    @responses.activate
+    def test_fitting_reaches_no_api(self, built: dict[str, Path]) -> None:
+        runner.invoke(
+            app,
+            ["genres", "fit", "--config", str(built["config"]),
+             "--k", "2", "--seeds", "1", "--bootstrap", "1"],
+        )
+        assert len(responses.calls) == 0
