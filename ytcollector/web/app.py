@@ -37,6 +37,7 @@ from ytcollector.planning import day_estimate
 from ytcollector.quota import PACIFIC, QuotaLimits, QuotaTracker
 from ytcollector.stages import search as search_stage
 from ytcollector.tasks import TaskQueue
+from ytcollector.web import matrix_view
 
 HERE = Path(__file__).resolve().parent
 LEADERS = ["fortnite", "call-of-duty-warzone", "apex-legends", "pubg"]
@@ -250,6 +251,7 @@ def collect_state(session: Session, study: str) -> dict[str, Any]:
 
     return {
         "study": study,
+        "genresLocal": matrix_view.is_enabled(),
         "title": config.title,
         "generatedAt": now.isoformat(),
         # Rendered server-side so the page reads without JavaScript; the script
@@ -405,6 +407,26 @@ def export_csv(name: str):  # type: ignore[no-untyped-def]
         media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+@app.get("/api/genres/matrix")
+def api_genres_matrix(
+    games: int = 60, tags: int = 40, tag: str = "", appid: int | None = None
+) -> JSONResponse:
+    """A corner of the game x tag matrix, for the matrix tab.
+
+    Served only when ``YTC_GENRES_LOCAL`` is set, because the matrix is derived
+    from client data held under a confidentiality agreement (SPEC_GENRES 3).
+    Never an error: the page shows what is missing and how to build it.
+    """
+    try:
+        payload = matrix_view.read_submatrix(
+            games=games, tags=tags, tag_query=tag, appid=appid
+        )
+    except (OSError, ValueError, KeyError, ImportError) as error:
+        # A malformed or unreadable local file must not take the page down.
+        payload = {"available": False, "reason": "unreadable", "detail": str(error)}
+    return JSONResponse(payload)
 
 
 @app.get("/healthz")

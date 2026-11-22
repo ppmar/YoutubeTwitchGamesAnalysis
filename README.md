@@ -51,6 +51,27 @@ La collecte tourne **automatiquement** chaque jour à 08:30 UTC, par un service 
 Railway (`30 8 * * *`). Pour l'arrêter, vider le champ *Cron Schedule* du service :
 la base reste intacte et la collecte reprend où elle s'était arrêtée.
 
+## La page de suivi
+
+Une vue web en lecture seule, qui n'écrit rien et n'appelle jamais l'API :
+
+```sh
+ytc serve        # http://127.0.0.1:8000
+```
+
+Elle est découpée en onglets — Collecte, Twitch, YouTube, Franchises, Les jeux,
+Matrice jeu × tags, Données. Sans JavaScript la page reste une seule page qui se
+déroule, comme avant. Les graphiques réagissent : la légende du signal Twitch
+masque une courbe et recalcule l'échelle, la chronologie se trie et se filtre,
+les grilles de cartes et le tableau des jeux ont un filtre et des en-têtes
+triables.
+
+L'onglet **Matrice jeu × tags** lit la matrice de `docs/SPEC_GENRES.md`
+(`data/processed/genres/`), dérivée des données client sous accord de
+confidentialité. Le serveur ne la sert **que** si `YTC_GENRES_LOCAL=1` est posé
+dans son environnement : à ne jamais poser sur un service déployé. Sans elle,
+l'onglet explique ce qui manque et comment le construire.
+
 ## Budget de quota
 
 `search.list` est limité à **100 appels par jour**, compteur séparé du budget de 10 000
@@ -146,6 +167,10 @@ quota viole les
 `data/external/` contient les deux CSV Twitch publics, fournis et non modifiés. Aucune
 donnée collectée, aucun export et aucune donnée client ne sont versionnés : **le dépôt est
 public**.
+
+`data/client/` contient les exports Steam du client, **sous accord de confidentialité** :
+ignorés par git et par Docker, jamais lus par `ytc daily`. Tout ce qui en dérive (matrices,
+`W`, `H`, figures) reste dans `data/processed/genres/`, lui aussi ignoré.
 
 ## Reste à faire par l'équipe
 

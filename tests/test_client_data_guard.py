@@ -23,6 +23,7 @@ def _is_git_repo() -> bool:
             cwd=ROOT,
             capture_output=True,
             text=True,
+            check=False,
         )
     except OSError:  # pragma: no cover - git missing from the environment
         return False
@@ -34,7 +35,10 @@ requires_git = pytest.mark.skipif(not _is_git_repo(), reason="not a git work tre
 
 def _check_ignore(relative: str) -> int:
     return subprocess.run(
-        ["git", "check-ignore", "-q", relative], cwd=ROOT, capture_output=True
+        ["git", "check-ignore", "-q", relative],
+        cwd=ROOT,
+        capture_output=True,
+        check=False,
     ).returncode
 
 
@@ -55,7 +59,11 @@ def test_git_ignores_client_data(relative: str) -> None:
 @requires_git
 def test_no_client_data_is_tracked() -> None:
     tracked = subprocess.run(
-        ["git", "ls-files", "data/client"], cwd=ROOT, capture_output=True, text=True
+        ["git", "ls-files", "data/client"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
     ).stdout.strip()
     assert tracked == "", f"client data is tracked: {tracked}"
 
@@ -68,6 +76,7 @@ def test_no_client_data_in_the_history() -> None:
         cwd=ROOT,
         capture_output=True,
         text=True,
+        check=False,
     ).stdout.strip()
     assert past == "", f"client data appears in the history: {past}"
 
