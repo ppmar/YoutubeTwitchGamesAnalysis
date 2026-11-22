@@ -1,0 +1,42 @@
+# Genre factorisation — docs/SPEC_GENRES.md.
+#
+# Local only. The inputs are the two client exports in `client_dir`, held under a
+# confidentiality agreement: never committed, never copied into the image, never
+# read by `ytc daily`. Everything derived from them is written to `output_dir`,
+# which `.gitignore` already covers.
+
+client_dir: data/client
+output_dir: data/processed/genres
+
+# What the team's exploration notebook found in the two files. They are checked
+# at load time and a wide gap stops the run rather than silently changing the
+# genres (SPEC_GENRES section 2).
+expected:
+  tag_rows: 3450000
+  tag_games: 206428
+  tags: 477
+  reference_games: 208016
+  tolerance: 0.05
+
+matrix:
+  # A game needs this many tag votes in total to be kept. Raising it cuts the
+  # noise of barely-played games and changes the IDF, hence the genres.
+  min_total_votes: 100
+  # Tag shares below this are set to zero before weighting.
+  min_tag_share: 0.02
+
+# Milestone G2. Left at scikit-learn's defaults until the team compares them.
+nmf:
+  k_grid: "10:60:5"
+  seeds: 5
+  n_bootstrap: 5
+  bootstrap_fraction: 0.8
+  max_iter: 500
+  beta_loss: frobenius
+  alpha_W: 0
+  l1_ratio: 0
+
+# Milestone G3. `select` refuses to write the final tables while k_final is null.
+selection:
+  k_final: null
+  membership_thresholds: [0.2, 0.3, 0.5]

@@ -51,6 +51,30 @@ La collecte tourne **automatiquement** chaque jour à 08:30 UTC, par un service 
 Railway (`30 8 * * *`). Pour l'arrêter, vider le champ *Cron Schedule* du service :
 la base reste intacte et la collecte reprend où elle s'était arrêtée.
 
+## Genres par NMF (local uniquement)
+
+`docs/SPEC_GENRES.md`. Les entrées sont les deux exports Steam du client, dans
+`data/client/`, **sous accord de confidentialité** : rien de tout cela n'est
+versionné ni déployé, et `ytc daily` n'y touche jamais.
+
+```sh
+pip install -e ".[dev,genres]"     # scikit-learn et scipy, hors image Railway
+ytc genres init-tag-families       # brouillon de config/tag_families.yml
+ytc genres build-matrix            # matrice jeu x tags en TF-IDF
+```
+
+`init-tag-families` écrit les 477 tags en `other`, du plus porté au moins porté :
+le classement en familles est une décision de l'équipe, pas de l'outil.
+`build-matrix` échoue tant qu'un tag n'y figure pas, et liste ceux qui manquent.
+Il échoue aussi si les comptes relevés dans l'export s'écartent de ceux du
+notebook d'exploration (`expected:` dans `config/genres.yml`) : c'est voulu,
+`--ignore-expected` ne sert qu'une fois l'écart compris.
+
+Réglages dans `config/genres.yml` : `min_total_votes` (défaut 100) et
+`min_tag_share` (défaut 0,02). Les deux changent l'IDF, donc les genres.
+Sorties dans `data/processed/genres/`, lisibles dans l'onglet *Matrice jeu × tags*
+de la page de suivi.
+
 ## La page de suivi
 
 Une vue web en lecture seule, qui n'écrit rien et n'appelle jamais l'API :
@@ -180,3 +204,6 @@ ignorés par git et par Docker, jamais lus par `ytc daily`. Tout ce qui en déri
   désactivés par défaut).
 - Revoir les `role` (`precursor` / `leader` / `follower`), qui sont une première passe.
 - Décider de la durée de conservation des données au regard des règles de l'API.
+- Classer les 477 tags Steam en familles dans `config/tag_families.yml`, puis choisir
+  `used_for_factorization` (défaut proposé par la spec : `gameplay` et `players`).
+- Trancher `min_total_votes` et `min_tag_share`, puis la grille de k et `k_final`.

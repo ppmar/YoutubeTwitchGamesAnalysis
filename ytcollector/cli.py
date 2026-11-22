@@ -560,6 +560,16 @@ def unlock(
     typer.echo(f"unlock: terminated {released} idle session(s) holding an advisory lock")
 
 
+def _add_genres() -> None:
+    """Attach `ytc genres` (SPEC_GENRES). It is local-only and never in `ytc daily`."""
+    from ytcollector.genres.cli import app as genres_app
+
+    app.add_typer(genres_app, name="genres")
+
+
+_add_genres()
+
+
 @app.command()
 def serve(
     host: Annotated[str, typer.Option("--host")] = "0.0.0.0",

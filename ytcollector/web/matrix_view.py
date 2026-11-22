@@ -104,7 +104,9 @@ def read_submatrix(
         }
 
     # Which games to show: the heaviest by tag votes, plus the focused one.
-    order = rows["total_votes"].to_numpy(dtype="float64", na_value=0.0).argsort()[::-1]
+    # Heaviest first, ties left in matrix order rather than reversed.
+    votes = rows["total_votes"].to_numpy(dtype="float64", na_value=0.0)
+    order = (-votes).argsort(kind="stable")
     picked = list(order[:n_games])
     if appid is not None:
         match = np.flatnonzero(rows["appid"].to_numpy() == appid)
