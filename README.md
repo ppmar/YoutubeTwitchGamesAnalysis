@@ -11,6 +11,7 @@ Première étude : le genre **battle royale**, 39 jeux actifs du dataset Twitch.
 Spécification complète : [`docs/SPEC.md`](docs/SPEC.md).
 Correctifs après revue : [`docs/SPEC_FIXES.md`](docs/SPEC_FIXES.md) — non implémentés.
 Calibration du score d'attention : [`docs/SPEC_CALIBRATION.md`](docs/SPEC_CALIBRATION.md) — jalon C0 fait, le reste non.
+Genres par NMF sur la matrice jeu × tags : [`docs/SPEC_GENRES.md`](docs/SPEC_GENRES.md) — non implémentés.
 Déploiement : [`docs/RAILWAY.md`](docs/RAILWAY.md).
 
 ## Installation
