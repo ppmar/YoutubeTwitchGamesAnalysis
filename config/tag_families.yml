@@ -1,0 +1,490 @@
+# Steam tag families — docs/SPEC_GENRES.md section 4.
+#
+# Tag names are public, so this file is versioned. The classification is not a
+# decision for the collector: every tag starts in `other` and the team moves it,
+# then chooses which families the factorisation uses (SPEC_GENRES section 12).
+#
+# Tags are listed by how many games carry them, most common first.
+# `ytc genres build-matrix` fails while a tag is missing from this file.
+
+families: [gameplay, players, visuals, themes, business, other]
+used_for_factorization: [gameplay, players]
+
+tags:
+  "Singleplayer": other
+  "Indie": other
+  "Casual": other
+  "Action": other
+  "Adventure": other
+  "2D": other
+  "3D": other
+  "Simulation": other
+  "Strategy": other
+  "Atmospheric": other
+  "Colorful": other
+  "RPG": other
+  "Exploration": other
+  "Story Rich": other
+  "Puzzle": other
+  "Cute": other
+  "Pixel Graphics": other
+  "First-Person": other
+  "Fantasy": other
+  "Action-Adventure": other
+  "Relaxing": other
+  "Arcade": other
+  "Multiplayer": other
+  "Stylized": other
+  "Combat": other
+  "Early Access": other
+  "Funny": other
+  "Horror": other
+  "Anime": other
+  "Top-Down": other
+  "Sci-fi": other
+  "Controller": other
+  "Shooter": other
+  "Retro": other
+  "Third Person": other
+  "Choices Matter": other
+  "Family Friendly": other
+  "PvE": other
+  "Female Protagonist": other
+  "Platformer": other
+  "Linear": other
+  "Dark": other
+  "Free to Play": other
+  "Mystery": other
+  "Visual Novel": other
+  "Realistic": other
+  "Multiple Endings": other
+  "Cartoony": other
+  "Roguelike": other
+  "2D Platformer": other
+  "Psychological Horror": other
+  "Roguelite": other
+  "Survival": other
+  "Comedy": other
+  "Physics": other
+  "PvP": other
+  "Open World": other
+  "Character Customization": other
+  "Management": other
+  "Co-op": other
+  "Sexual Content": other
+  "Minimalist": other
+  "Hand-drawn": other
+  "Point & Click": other
+  "Sandbox": other
+  "Resource Management": other
+  "Magic": other
+  "Nudity": other
+  "FPS": other
+  "Action RPG": other
+  "Action Roguelike": other
+  "Immersive Sim": other
+  "Tactical": other
+  "Online Co-Op": other
+  "Building": other
+  "Medieval": other
+  "3D Platformer": other
+  "Violent": other
+  "Difficult": other
+  "Procedural Generation": other
+  "Crafting": other
+  "Dark Fantasy": other
+  "Interactive Fiction": other
+  "Choose Your Own Adventure": other
+  "Space": other
+  "Emotional": other
+  "Futuristic": other
+  "Logic": other
+  "Old School": other
+  "Cartoon": other
+  "Turn-Based Strategy": other
+  "Turn-Based Tactics": other
+  "Hidden Object": other
+  "Romance": other
+  "Incremental": other
+  "Turn-Based Combat": other
+  "Drama": other
+  "Side Scroller": other
+  "Gore": other
+  "Nature": other
+  "Survival Horror": other
+  "Bullet Hell": other
+  "Puzzle Platformer": other
+  "1990's": other
+  "Walking Simulator": other
+  "VR": other
+  "Hack and Slash": other
+  "Dungeon Crawler": other
+  "Surreal": other
+  "Life Sim": other
+  "Base Building": other
+  "Score Attack": other
+  "Dating Sim": other
+  "Sports": other
+  "Card Game": other
+  "Hentai": other
+  "Idler": other
+  "Text-Based": other
+  "Economy": other
+  "Post-apocalyptic": other
+  "Clicker": other
+  "Local Multiplayer": other
+  "Cinematic": other
+  "Shoot 'Em Up": other
+  "Mature": other
+  "Lore-Rich": other
+  "Racing": other
+  "2.5D": other
+  "Time Management": other
+  "Psychological": other
+  "incremental": other
+  "Investigation": other
+  "Top-Down Shooter": other
+  "Isometric": other
+  "Stealth": other
+  "NSFW": other
+  "Deckbuilding": other
+  "JRPG": other
+  "Dialogue Heavy": other
+  "Thriller": other
+  "War": other
+  "Zombies": other
+  "Historical": other
+  "Collectathon": other
+  "Education": other
+  "LGBTQ+": other
+  "Cozy": other
+  "Supernatural": other
+  "Strategy RPG": other
+  "Dark Humor": other
+  "Inventory Management": other
+  "Local Co-Op": other
+  "Detective": other
+  "Replay Value": other
+  "1980s": other
+  "Narration": other
+  "Tower Defense": other
+  "Cyberpunk": other
+  "Conversation": other
+  "Precision Platformer": other
+  "Third-Person Shooter": other
+  "Nonlinear": other
+  "Abstract": other
+  "Demons": other
+  "Real Time Tactics": other
+  "Artificial Intelligence": other
+  "Military": other
+  "Tabletop": other
+  "Aliens": other
+  "Loot": other
+  "Card Battler": other
+  "Perma Death": other
+  "Board Game": other
+  "Robots": other
+  "RTS": other
+  "Tutorial": other
+  "Arena Shooter": other
+  "Great Soundtrack": other
+  "Automation": other
+  "Massively Multiplayer": other
+  "Dystopian": other
+  "Tactical RPG": other
+  "City Builder": other
+  "Comic Book": other
+  "Modern": other
+  "Team-Based": other
+  "Driving": other
+  "Psychedelic": other
+  "Cats": other
+  "Party-Based RPG": other
+  "Creature Collector": other
+  "Wargame": other
+  "Souls-like": other
+  "Capitalism": other
+  "Short": other
+  "Runner": other
+  "Metroidvania": other
+  "Fast-Paced": other
+  "Grid-Based Movement": other
+  "Beat 'em up": other
+  "Mythology": other
+  "Party Game": other
+  "Parkour": other
+  "Alternate History": other
+  "Flight": other
+  "Turn-Based": other
+  "Crime": other
+  "4 Player Local": other
+  "Auto Battler": other
+  "Memes": other
+  "CRPG": other
+  "Destruction": other
+  "Level Editor": other
+  "2D Fighter": other
+  "Farming Sim": other
+  "Utilities": other
+  "Cooking": other
+  "Philosophical": other
+  "Rhythm": other
+  "Dark Comedy": other
+  "Twin Stick Shooter": other
+  "Class-Based": other
+  "Word Game": other
+  "Trading": other
+  "Automobile Sim": other
+  "Wholesome": other
+  "Colony Sim": other
+  "3D Fighter": other
+  "Noir": other
+  "Music": other
+  "RPGMaker": other
+  "Space Sim": other
+  "Lovecraftian": other
+  "Design & Illustration": other
+  "Software": other
+  "Vehicular Combat": other
+  "Competitive": other
+  "Science": other
+  "Moddable": other
+  "Swordplay": other
+  "Mystery Dungeon": other
+  "Gun Customization": other
+  "Grand Strategy": other
+  "Roguelike Deckbuilder": other
+  "Match 3": other
+  "Experimental": other
+  "Shop Keeper": other
+  "Conspiracy": other
+  "Mining": other
+  "Gothic": other
+  "Parody": other
+  "Narrative": other
+  "Quick-Time Events": other
+  "Satire": other
+  "Fighting": other
+  "Underground": other
+  "Looter Shooter": other
+  "Dragons": other
+  "eSports": other
+  "Agriculture": other
+  "MMORPG": other
+  "Bullet Time": other
+  "Battle Royale": other
+  "Fishing": other
+  "Combat Racing": other
+  "Split Screen": other
+  "Spectacle fighter": other
+  "Dynamic Narration": other
+  "Classic": other
+  "Action RTS": other
+  "Voxel": other
+  "3D Vision": other
+  "America": other
+  "Time Manipulation": other
+  "6DOF": other
+  "Solitaire": other
+  "Hero Shooter": other
+  "Co-op Campaign": other
+  "Soundtrack": other
+  "Gambling": other
+  "Martial Arts": other
+  "Bullet Heaven": other
+  "God Game": other
+  "Otome": other
+  "Boomer Shooter": other
+  "Mechs": other
+  "Trading Card Game": other
+  "Animals": other
+  "Dogs": other
+  "Underwater": other
+  "Job Simulator": other
+  "FMV": other
+  "Typing": other
+  "Sokoban": other
+  "Political Sim": other
+  "World War II": other
+  "Game Development": other
+  "Time Travel": other
+  "Hex Grid": other
+  "Open World Survival Craft": other
+  "Political": other
+  "Immersive": other
+  "Steampunk": other
+  "Pirates": other
+  "Dog": other
+  "Vampires": other
+  "Traditional Roguelike": other
+  "Animation & Modeling": other
+  "Asynchronous Multiplayer": other
+  "Hacking": other
+  "Programming": other
+  "Hunting": other
+  "Faith": other
+  "Transportation": other
+  "4X": other
+  "Vampire": other
+  "Ninja": other
+  "Mouse Only": other
+  "Tanks": other
+  "Minigames": other
+  "Character Action Game": other
+  "Party": other
+  "Escape Room": other
+  "Western": other
+  "Politics": other
+  "Blood": other
+  "Dinosaurs": other
+  "Snow": other
+  "MOBA": other
+  "Mouse only": other
+  "Naval": other
+  "Diplomacy": other
+  "Assassins": other
+  "Beautiful": other
+  "Trains": other
+  "Sailing": other
+  "Superhero": other
+  "Trivia": other
+  "Assassin": other
+  "Football (Soccer)": other
+  "Time Attack": other
+  "Heist": other
+  "Desktop Companion": other
+  "Cold War": other
+  "Archery": other
+  "Naval Combat": other
+  "On-Rails Shooter": other
+  "Nostalgia": other
+  "Video Production": other
+  "Organizing": other
+  "Real-Time": other
+  "Remake": other
+  "Transhumanism": other
+  "Music-Based Procedural Generation": other
+  "Farming": other
+  "Spelling": other
+  "Audio Production": other
+  "Foreign": other
+  "Offroad": other
+  "Outbreak Sim": other
+  "Chess": other
+  "Real-Time with Pause": other
+  "Horses": other
+  "Cleaning": other
+  "Werewolves": other
+  "Boxing": other
+  "Sniper": other
+  "Villain Protagonist": other
+  "Addictive": other
+  "Decorating": other
+  "Social Deduction": other
+  "Photo Editing": other
+  "Mars": other
+  "Medical Sim": other
+  "Dice": other
+  "Illuminati": other
+  "Spaceships": other
+  "Roguevania": other
+  "Episodic": other
+  "Golf": other
+  "Submarine": other
+  "Jump Scare": other
+  "Software Training": other
+  "Jet": other
+  "Rome": other
+  "Boss Rush": other
+  "Pinball": other
+  "Dwarves": other
+  "World War I": other
+  "Touch-Friendly": other
+  "Motorbike": other
+  "Extraction Shooter": other
+  "Basketball": other
+  "Unforgiving": other
+  "Sequel": other
+  "Bikes": other
+  "Cult Classic": other
+  "Experience": other
+  "Xianxia": other
+  "Electronic Music": other
+  "Dwarf": other
+  "Wuxia": other
+  "Hobby Sim": other
+  "Asymmetric VR": other
+  "360 Video": other
+  "Mini Golf": other
+  "Ambient": other
+  "Gaming": other
+  "Falling Blocks": other
+  "Elves": other
+  "Skateboarding": other
+  "Billiards": other
+  "Wrestling": other
+  "LEGO": other
+  "Poker": other
+  "Football (American)": other
+  "Kickstarter": other
+  "Espionage": other
+  "Skating": other
+  "Vikings": other
+  "Cult": other
+  "GameMaker": other
+  "Pool": other
+  "Mahjong": other
+  "Web Publishing": other
+  "Silent Protagonist": other
+  "Baseball": other
+  "Cycling": other
+  "Pool/Billiards": other
+  "Tennis": other
+  "Movie": other
+  "Birds": other
+  "Box-Pushing": other
+  "Hockey": other
+  "Instrumental Music": other
+  "Epic": other
+  "Dungeons & Dragons": other
+  "Intentionally Awkward Controls": other
+  "Motocross": other
+  "Samurai": other
+  "Elf": other
+  "Language Learning": other
+  "Mod": other
+  "Voice Control": other
+  "Lemmings": other
+  "Bowling": other
+  "Foxes": other
+  "Tile-Matching": other
+  "Rock Music": other
+  "Skiing": other
+  "Games Workshop": other
+  "Snowboarding": other
+  "Warhammer 40K": other
+  "Based On A Novel": other
+  "Crowdfunded": other
+  "8-bit Music": other
+  "Hardware": other
+  "BMX": other
+  "Well-Written": other
+  "ATV": other
+  "Fox": other
+  "Capybaras": other
+  "Wolves": other
+  "Electronic": other
+  "Coding": other
+  "Musou": other
+  "Benchmark": other
+  "Cricket": other
+  "Zoo": other
+  "Volleyball": other
+  "TrackIR": other
+  "Documentary": other
+  "Rugby": other
+  "Snooker": other
+  "Feature Film": other
+  "Reboot": other
+  "Steam Machine": other
