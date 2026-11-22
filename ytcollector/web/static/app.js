@@ -38,6 +38,35 @@
     return e;
   }
 
+  /* ---- chart registry --------------------------------------------------- */
+
+  /* A chart measures its box to size itself, and a box inside a hidden tab
+     measures zero. So drawing is deferred: every chart registers its draw
+     function, and it runs when the box has a width — on load, on resize, and
+     each time its tab is shown. */
+  var charts = [];
+
+  function register(box, draw) {
+    var entry = {box: box, draw: draw, drawn: false};
+    charts.push(entry);
+    paint(entry);
+    return entry;
+  }
+
+  function paint(entry) {
+    if (!entry.box.clientWidth) return;
+    entry.draw();
+    entry.drawn = true;
+  }
+
+  function repaintAll() { charts.forEach(paint); }
+
+  var resizePending;
+  window.addEventListener("resize", function () {
+    clearTimeout(resizePending);
+    resizePending = setTimeout(repaintAll, 150);
+  });
+
   /* ---- status strip ---------------------------------------------------- */
 
   function renderStrip() {
@@ -163,17 +192,33 @@
     var data = twitchSeries();
     if (!data.months.length) { box.replaceChildren(el("p", "note", "Pas de série Twitch chargée.")); return; }
 
+    // Which series are switched off, by game id. The scale follows what is left,
+    // which is the point of switching one off: Fortnite dwarfs the rest.
+    var off = {};
+
     var legend = $("[data-legend]");
     legend.replaceChildren.apply(legend, data.series.map(function (s, i) {
-      var sp = el("span");
+      var colour = ink(SERIES_INK[i % SERIES_INK.length]);
       var sw = el("i");
-      sw.style.background = ink(SERIES_INK[i % SERIES_INK.length]);
       if (SERIES_DASH[i % SERIES_DASH.length]) {
         sw.style.background = "none";
-        sw.style.borderTop = "2px dashed " + ink(SERIES_INK[i % SERIES_INK.length]);
+        sw.style.borderTop = "2px dashed " + colour;
+      } else {
+        sw.style.background = colour;
       }
-      sp.append(sw, el("span", null, s.name));
-      return sp;
+      var button = el("button");
+      button.type = "button";
+      button.setAttribute("aria-pressed", "true");
+      button.title = "Masquer ou remontrer " + s.name;
+      button.append(sw, el("span", null, s.name));
+      button.addEventListener("click", function () {
+        var left = data.series.filter(function (x) { return !off[x.id]; });
+        if (!off[s.id] && left.length < 2) return;  // never leave an empty chart
+        off[s.id] = !off[s.id];
+        button.setAttribute("aria-pressed", off[s.id] ? "false" : "true");
+        draw();
+      });
+      return button;
     }));
 
     var tip = el("div", "tip");
@@ -183,12 +228,18 @@
       var old = box.querySelector("svg");
       if (old) old.remove();
 
+      var shown = [];
+      data.series.forEach(function (ser, si) {
+        if (!off[ser.id]) shown.push({ser: ser, si: si});
+      });
+
       var W = Math.max(280, box.clientWidth);
       var H = W < 560 ? 240 : 340;
       var max = 0;
-      data.series.forEach(function (s) {
-        s.points.forEach(function (p) { if (p.value > max) max = p.value; });
+      shown.forEach(function (item) {
+        item.ser.points.forEach(function (p) { if (p.value > max) max = p.value; });
       });
+      if (!max) max = 1;
       var step = Math.pow(10, Math.floor(Math.log10(max)));
       var top = Math.ceil(max / step) * step;
 
@@ -198,7 +249,8 @@
       var yOf = function (v) { return m.t + ih - (v / top) * ih; };
 
       var s = svg("svg", {viewBox: "0 0 " + W + " " + H, role: "img",
-        "aria-label": "Heures regardées par mois sur Twitch, quatre leaders et reste du genre"});
+        "aria-label": "Heures regardées par mois sur Twitch, "
+          + shown.length + " séries affichées"});
 
       var ax = svg("g", {class: "ax"});
       var ticks = 4;
@@ -207,7 +259,7 @@
         ax.append(svg("line", {x1: m.l, x2: W - m.r, y1: y, y2: y,
           class: t === 0 ? "base" : null}));
         var lab = svg("text", {x: m.l - 8, y: y + 4, "text-anchor": "end"});
-        lab.textContent = Math.round(v / 1e6) + " M";
+        lab.textContent = v >= 1e6 ? Math.round(v / 1e6) + " M" : Math.round(v / 1e3) + " k";
         ax.append(lab);
       }
       var every = data.months.length > 60 ? 12 : 6;
@@ -219,7 +271,9 @@
       });
       s.append(ax);
 
-      data.series.forEach(function (ser, si) {
+      var labels = [];
+      shown.forEach(function (item) {
+        var ser = item.ser, si = item.si;
         var d = ser.points.map(function (p) {
           return xOf(data.months.indexOf(p.month)) + "," + yOf(p.value);
         }).join(" L");
@@ -231,12 +285,25 @@
 
         if (W >= 560 && ser.points.length) {
           var last = ser.points[ser.points.length - 1];
-          var tx = svg("text", {x: xOf(data.months.indexOf(last.month)) + 7,
-            y: yOf(last.value) + 4, "font-size": 11});
-          tx.style.fill = ink("--ink-soft");
-          tx.textContent = ser.name.length > 13 ? ser.name.slice(0, 12) + "…" : ser.name;
-          s.append(tx);
+          labels.push({
+            x: xOf(data.months.indexOf(last.month)) + 7,
+            y: yOf(last.value) + 4,
+            name: ser.name.length > 13 ? ser.name.slice(0, 12) + "…" : ser.name,
+          });
         }
+      });
+
+      // Four lines that end close together would print four labels on top of
+      // each other; space them out from the top down.
+      labels.sort(function (a, b) { return a.y - b.y; });
+      var floor = m.t;
+      labels.forEach(function (item) {
+        var y = Math.max(item.y, floor + 11);
+        floor = y;
+        var tx = svg("text", {x: item.x, y: Math.min(y, m.t + ih), "font-size": 11});
+        tx.style.fill = ink("--ink-soft");
+        tx.textContent = item.name;
+        s.append(tx);
       });
 
       var rule = svg("line", {y1: m.t, y2: m.t + ih, "stroke-width": 1, opacity: 0});
@@ -257,14 +324,15 @@
         rule.setAttribute("x1", mx); rule.setAttribute("x2", mx); rule.setAttribute("opacity", 1);
 
         var rows = [el("div", "tip-h", monthLabel(month))];
-        data.series.forEach(function (ser, si) {
+        shown.forEach(function (item) {
+          var ser = item.ser;
           var pt = null;
           for (var k = 0; k < ser.points.length; k++) {
             if (ser.points[k].month === month) { pt = ser.points[k]; break; }
           }
           var row = el("div", "tip-r");
           var sw = el("i");
-          sw.style.background = ink(SERIES_INK[si % SERIES_INK.length]);
+          sw.style.background = ink(SERIES_INK[item.si % SERIES_INK.length]);
           row.append(sw, el("span", null, ser.name),
             el("b", null, pt ? hours(pt.value) + " h" : "hors top 200"));
           rows.push(row);
@@ -280,12 +348,36 @@
       box.append(s);
     }
 
-    draw();
-    var pending;
-    window.addEventListener("resize", function () {
-      clearTimeout(pending);
-      pending = setTimeout(draw, 140);
-    });
+    register(box, draw);
+  }
+
+  /* ---- filtering a grid of cards ---------------------------------------- */
+
+  /* The grids hold one card per game, which is more than fits on a screen once
+     the collection runs. Each card carries a search key and the input hides
+     what does not match. */
+  function wireFilter(kind, box) {
+    var input = document.querySelector('[data-filter="' + kind + '"]');
+    var count = document.querySelector('[data-filter-count="' + kind + '"]');
+    var controls = document.querySelector("[data-" + kind + "-controls]");
+    if (controls) controls.hidden = false;
+    if (!input) return;
+
+    function apply() {
+      var q = input.value.trim().toLowerCase();
+      var shown = 0, total = 0;
+      Array.prototype.forEach.call(box.children, function (card) {
+        total++;
+        var hit = !q || (card.dataset.key || "").indexOf(q) >= 0;
+        card.hidden = !hit;
+        if (hit) shown++;
+      });
+      if (count) {
+        count.textContent = q ? shown + " sur " + total + " jeux" : total + " jeux";
+      }
+    }
+    input.addEventListener("input", apply);
+    apply();
   }
 
   /* ---- YouTube against Twitch, on one indexed scale --------------------- */
@@ -338,6 +430,7 @@
       var tw = indexTo100(twitchBy[id] || []);
       var card = el("figure", "plot");
       card.style.margin = "0";
+      card.dataset.key = ((names[id] || id) + " " + id).toLowerCase();
 
       var head = el("div", "cmp-head");
       head.append(el("span", "cmp-name", names[id] || id));
@@ -425,9 +518,9 @@
       card.append(key);
       return card;
     }));
+
+    wireFilter("compare", box);
   }
-
-
 
   /* ---- franchises -------------------------------------------------------- */
 
@@ -560,15 +653,32 @@
 
   function renderChrono() {
     var box = $("[data-chart-chrono]");
-    var games = gameSpans();
+    var showModes = $("[data-chrono-modes]");
+    var byVolume = $("[data-chrono-sort]");
+    var all = gameSpans();
     var months = allMonths();
-    if (!games.length || !months.length) {
+    if (!all.length || !months.length) {
       box.replaceChildren(el("p", "note", "Pas de série Twitch chargée."));
       return;
     }
 
+    function selection() {
+      var list = all.filter(function (g) {
+        return g.enabled || (showModes && showModes.checked);
+      });
+      if (byVolume && byVolume.checked) {
+        list = list.slice().sort(function (a, b) { return (b.hours || 0) - (a.hours || 0); });
+      }
+      return list;
+    }
+
     function draw() {
+      var games = selection();
       box.replaceChildren();
+      if (!games.length) {
+        box.replaceChildren(el("p", "note", "Aucun jeu sélectionné."));
+        return;
+      }
       var W = Math.max(300, box.clientWidth);
       var rowH = 15, labelW = W < 620 ? 0 : 160;
       var m = {t: 8, r: 10, b: 24, l: labelW};
@@ -581,7 +691,9 @@
 
       var s = svg("svg", {viewBox: "0 0 " + W + " " + H, role: "img",
         "aria-label": "Présence de " + games.length
-          + " jeux au top 200 Twitch, du plus ancien arrivé au plus récent"});
+          + " jeux au top 200 Twitch, "
+          + (byVolume && byVolume.checked ? "du plus regardé au moins regardé"
+                                          : "du plus ancien arrivé au plus récent")});
 
       var ax = svg("g", {class: "ax"});
       months.forEach(function (mo) {
@@ -599,8 +711,11 @@
         var row = svg("g", {class: "chrono-row"});
         var tip = svg("title");
         tip.textContent = g.name + " — " + g.months.length + " mois, "
-          + g.first + " à " + g.last + ", pic " + (g.peak || "?");
+          + g.first + " à " + g.last + ", pic " + (g.peak || "?")
+          + ", " + hours(g.hours || 0) + " h regardées";
         row.append(tip);
+        row.append(svg("rect", {x: 0, y: y + 1, width: W, height: rowH - 2,
+          class: "heat-row-bg"}));
 
         g.months.forEach(function (mo) {
           var bar = svg("rect", {x: xOf(mo) - cellW / 2, y: y + 2,
@@ -629,11 +744,10 @@
       box.append(s);
     }
 
-    draw();
-    var pending;
-    window.addEventListener("resize", function () {
-      clearTimeout(pending); pending = setTimeout(draw, 160);
+    [showModes, byVolume].forEach(function (input) {
+      if (input) input.addEventListener("change", draw);
     });
+    register(box, draw);
   }
 
   /* ---- rise against decline -------------------------------------------- */
@@ -721,11 +835,7 @@
       box.append(s);
     }
 
-    draw();
-    var pending;
-    window.addEventListener("resize", function () {
-      clearTimeout(pending); pending = setTimeout(draw, 160);
-    });
+    register(box, draw);
   }
 
   /* ---- who publishes --------------------------------------------------- */
@@ -750,6 +860,7 @@
       });
       var card = el("figure", "plot");
       card.style.margin = "0";
+      card.dataset.key = ((names[id] || id) + " " + id).toLowerCase();
       var head = el("div", "who-head");
       head.append(el("span", "who-name", names[id] || id));
       var mean = rows.reduce(function (t, r) { return t + r.hhi; }, 0) / rows.length;
@@ -815,16 +926,41 @@
     });
 
     box.replaceChildren.apply(box, cards);
+    wireFilter("who", box);
   }
 
   /* ---- roster ---------------------------------------------------------- */
 
+  var TEXT_KEYS = ["name", "role", "first", "peak"];
+  var rosterSort = {key: "hours", dir: -1};
+
   function renderRoster() {
     var body = $("[data-roster]");
+    var input = document.querySelector('[data-filter="roster"]');
+    var count = document.querySelector('[data-filter-count="roster"]');
+    var heads = Array.prototype.slice.call(
+      document.querySelectorAll(".roster thead th[data-sort]")
+    );
     var maxHours = 0;
     state.games.forEach(function (g) { if ((g.hours || 0) > maxHours) maxHours = g.hours || 0; });
 
-    body.replaceChildren.apply(body, state.games.map(function (g) {
+    function selection() {
+      var q = ((input && input.value) || "").trim().toLowerCase();
+      var list = state.games.filter(function (g) {
+        return !q || (g.name || "").toLowerCase().indexOf(q) >= 0
+                  || (g.id || "").indexOf(q) >= 0;
+      });
+      var key = rosterSort.key, dir = rosterSort.dir;
+      return list.slice().sort(function (a, b) {
+        if (TEXT_KEYS.indexOf(key) >= 0) {
+          var x = (a[key] || ""), y = (b[key] || "");
+          return x < y ? -dir : x > y ? dir : 0;
+        }
+        return ((a[key] || 0) - (b[key] || 0)) * dir;
+      });
+    }
+
+    function row(g) {
       var tr = el("tr");
       tr.dataset.off = g.enabled ? "no" : "yes";
 
@@ -848,13 +984,435 @@
 
       tr.append(el("td", "num", n(g.slices)));
       return tr;
-    }));
+    }
+
+    function paintRows() {
+      var list = selection();
+      body.replaceChildren.apply(body, list.map(row));
+      if (count) {
+        count.textContent = list.length === state.games.length
+          ? n(list.length) + " entrées"
+          : n(list.length) + " sur " + n(state.games.length) + " entrées";
+      }
+    }
+
+    heads.forEach(function (th) {
+      th.addEventListener("click", function () {
+        var key = th.dataset.sort;
+        if (rosterSort.key === key) {
+          rosterSort.dir = -rosterSort.dir;
+        } else {
+          rosterSort.key = key;
+          rosterSort.dir = TEXT_KEYS.indexOf(key) >= 0 ? 1 : -1;
+        }
+        heads.forEach(function (other) { other.removeAttribute("aria-sort"); });
+        th.setAttribute("aria-sort", rosterSort.dir > 0 ? "ascending" : "descending");
+        paintRows();
+      });
+    });
+    if (input) input.addEventListener("input", paintRows);
+    paintRows();
   }
 
   function renderFooter() {
     var d = new Date(state.generatedAt);
     $("[data-generated]").textContent = "le " + d.toLocaleDateString("fr-FR") +
       " à " + d.toLocaleTimeString("fr-FR", {hour: "2-digit", minute: "2-digit"});
+  }
+
+  /* ---- the game x tag matrix -------------------------------------------- */
+
+  /* The matrix is derived from the client exports held under a confidentiality
+     agreement, so the server only serves it on an opt-in local run. The tab is
+     always there and explains itself when there is nothing to show. */
+  var matrix = {payload: null, loading: false, asked: false, tag: null, game: null, order: null};
+
+  var HEAT_STEPS = [0.14, 0.32, 0.52, 0.74, 1];
+
+  function heatOpacity(value, scale) {
+    if (!(value > 0) || !scale) return 0;
+    var share = Math.min(1, value / scale);
+    for (var i = 0; i < HEAT_STEPS.length; i++) {
+      if (share <= (i + 1) / HEAT_STEPS.length) return HEAT_STEPS[i];
+    }
+    return 1;
+  }
+
+  function matrixParams() {
+    var tag = ($("[data-matrix-tag]").value || "").trim();
+    return "?games=" + encodeURIComponent($("[data-matrix-games]").value)
+      + "&tags=" + encodeURIComponent($("[data-matrix-tags]").value)
+      + (tag ? "&tag=" + encodeURIComponent(tag) : "");
+  }
+
+  function loadMatrix() {
+    if (matrix.loading) return;
+    matrix.loading = true;
+    var note = $("[data-matrix-count]");
+    if (note) note.textContent = "chargement…";
+    var reason = $("[data-matrix-reason]");
+    if (reason && !matrix.payload) reason.textContent = "Lecture de la matrice locale…";
+    fetch("/api/genres/matrix" + matrixParams())
+      .then(function (r) { return r.json(); })
+      .then(function (payload) {
+        matrix.loading = false;
+        matrix.payload = payload;
+        matrix.game = null;
+        matrix.order = null;
+        renderMatrix();
+      })
+      .catch(function (error) {
+        matrix.loading = false;
+        matrix.payload = {available: false, reason: "network", detail: String(error)};
+        renderMatrix();
+      });
+  }
+
+  var MATRIX_REASONS = {
+    disabled: [
+      "Cette vue reste locale : le serveur ne la sert pas.",
+      "Les deux CSV sources sont des données client sous accord de confidentialité. "
+        + "Relancez le serveur en local avec YTC_GENRES_LOCAL=1 pour l'activer ; "
+        + "un service déployé ne doit jamais la servir.",
+    ],
+    missing: [
+      "La matrice n'est pas encore construite.",
+      "Lancez ytc genres build-matrix (jalon G1). Attendus dans "
+        + "data/processed/genres/ : matrix.npz, rows.parquet et cols.parquet.",
+    ],
+    mismatch: [
+      "La matrice et ses étiquettes ne s'accordent pas.",
+      "Reconstruisez-la : rows.parquet et cols.parquet doivent décrire exactement "
+        + "les lignes et les colonnes de matrix.npz.",
+    ],
+    unreadable: [
+      "La matrice est illisible.",
+      "Le fichier attendu est une matrice CSR écrite par scipy.sparse.save_npz.",
+    ],
+    network: [
+      "Le serveur n'a pas répondu.",
+      "Rechargez la page ; la vue ne lit rien d'autre que des fichiers locaux.",
+    ],
+  };
+
+  function renderMatrix() {
+    var payload = matrix.payload || {};
+    var empty = $("[data-matrix-empty]");
+    var body = $("[data-matrix]");
+
+    if (!payload.available) {
+      var said = MATRIX_REASONS[payload.reason] || MATRIX_REASONS.unreadable;
+      $("[data-matrix-reason]").textContent = said[0];
+      var howto = said[1];
+      if (payload.detail) howto += " (" + payload.detail + ")";
+      if (payload.missing && payload.missing.length) {
+        howto += " Manquent : " + payload.missing.join(", ") + ".";
+      }
+      $("[data-matrix-howto]").textContent = howto;
+      empty.hidden = false;
+      body.hidden = true;
+      return;
+    }
+
+    empty.hidden = true;
+    body.hidden = false;
+    renderMatrixStats(payload);
+
+    var note = $("[data-matrix-count]");
+    if (note) {
+      note.textContent = payload.games.length + " jeux × " + payload.tags.length
+        + " tags, " + n(payload.cells.length) + " cases non nulles";
+    }
+    renderHeatKey(payload);
+    drawHeat();
+    renderMatrixDetail();
+  }
+
+  function renderMatrixStats(payload) {
+    var box = $("[data-matrix-stats]");
+    var src = payload.source || {};
+    var pairs = [
+      ["Jeux retenus", n(src.games)],
+      ["Tags en colonnes", n(src.tags)],
+      ["Tags par jeu", String(src.tagsPerGame || 0).replace(".", ",")],
+      ["Votes médians", n(src.votesMedian)],
+    ];
+    box.replaceChildren.apply(box, pairs.map(function (pair) {
+      var cell = el("div");
+      cell.append(el("dt", null, pair[0]), el("dd", null, pair[1]));
+      return cell;
+    }));
+  }
+
+  function renderHeatKey(payload) {
+    var box = $("[data-matrix-key]");
+    var ramp = el("div", "ramp");
+    HEAT_STEPS.forEach(function (step) {
+      var cell = el("i");
+      cell.style.background = ink("--s1");
+      cell.style.opacity = step;
+      ramp.append(cell);
+    });
+    box.replaceChildren(
+      el("span", null, "poids TF-IDF faible"),
+      ramp,
+      el("span", null, "fort (jusqu'à " + String(payload.scale).replace(".", ",") + ")"),
+      el("span", "hint", "chaque ligne est de norme 1, les poids d'un jeu sont comparables entre eux")
+    );
+  }
+
+  function matrixOrder(payload) {
+    var mode = $("[data-matrix-sort]").value;
+    var order = payload.games.map(function (_, i) { return i; });
+    if (mode === "name") {
+      order.sort(function (a, b) {
+        var x = payload.games[a].name.toLowerCase(), y = payload.games[b].name.toLowerCase();
+        return x < y ? -1 : x > y ? 1 : 0;
+      });
+    } else if (mode === "selected" && matrix.tag !== null) {
+      var weight = {};
+      payload.cells.forEach(function (c) {
+        if (c[1] === matrix.tag) weight[c[0]] = c[2];
+      });
+      order.sort(function (a, b) { return (weight[b] || 0) - (weight[a] || 0); });
+    }
+    return order;
+  }
+
+  function drawHeat() {
+    var payload = matrix.payload;
+    var box = $("[data-matrix-heat]");
+    if (!payload.games.length || !payload.tags.length) {
+      box.replaceChildren(el("p", "note", "Aucun tag ne correspond à ce filtre."));
+      return;
+    }
+
+    var order = matrixOrder(payload);
+    var value = {};
+    payload.cells.forEach(function (c) { value[c[0] + ":" + c[1]] = c[2]; });
+
+    var cell = 15, labelW = 168, headH = 104;
+    var W = labelW + payload.tags.length * cell + 12;
+    var H = headH + order.length * cell + 8;
+
+    var tip = el("div", "tip");
+    var s = svg("svg", {viewBox: "0 0 " + W + " " + H, width: W, height: H, role: "img",
+      "aria-label": "Matrice de " + order.length + " jeux par " + payload.tags.length
+        + " tags, poids TF-IDF"});
+
+    // Tag headers, slanted so long names stay readable; clicking one selects it.
+    payload.tags.forEach(function (tag, j) {
+      var x = labelW + j * cell + cell / 2;
+      var label = svg("text", {x: x, y: headH - 8, class: "heat-label",
+        transform: "rotate(-45 " + x + " " + (headH - 8) + ")"});
+      label.textContent = tag.tag.length > 22 ? tag.tag.slice(0, 21) + "…" : tag.tag;
+      label.setAttribute("data-picked", matrix.tag === j ? "yes" : "no");
+      var title = svg("title");
+      title.textContent = tag.tag + " — famille " + tag.family + ", présent dans "
+        + n(tag.df) + " jeux, idf " + String(tag.idf).replace(".", ",");
+      label.append(title);
+      label.addEventListener("click", function () {
+        matrix.tag = matrix.tag === j ? null : j;
+        matrix.game = null;
+        drawHeat();
+        renderMatrixDetail();
+      });
+      s.append(label);
+    });
+
+    order.forEach(function (gi, rowIndex) {
+      var game = payload.games[gi];
+      var y = headH + rowIndex * cell;
+      var row = svg("g", {class: "heat-row"});
+      row.append(svg("rect", {x: 0, y: y, width: W, height: cell, class: "heat-row-bg"}));
+
+      var label = svg("text", {x: labelW - 10, y: y + cell / 2 + 3.5,
+        "text-anchor": "end", class: "heat-label"});
+      label.textContent = game.name.length > 26 ? game.name.slice(0, 25) + "…" : game.name;
+      label.setAttribute("data-picked", matrix.game === gi ? "yes" : "no");
+      var gtitle = svg("title");
+      gtitle.textContent = game.name + " — appid " + game.appid + ", "
+        + n(game.totalVotes) + " votes de tags"
+        + (game.releaseDate ? ", sortie " + game.releaseDate : "");
+      label.append(gtitle);
+      label.addEventListener("click", function () {
+        matrix.game = matrix.game === gi ? null : gi;
+        matrix.tag = null;
+        drawHeat();
+        renderMatrixDetail();
+      });
+      row.append(label);
+
+      payload.tags.forEach(function (tag, j) {
+        var v = value[gi + ":" + j] || 0;
+        var rect = svg("rect", {x: labelW + j * cell, y: y + 1,
+          width: cell - 1, height: cell - 2, class: "heat-cell"});
+        rect.style.fill = ink("--s1");
+        rect.style.fillOpacity = heatOpacity(v, payload.scale);
+        rect.addEventListener("pointerenter", function () {
+          tip.replaceChildren(
+            el("div", "tip-h", game.name),
+            rowOf(tag.tag, v ? String(v).replace(".", ",") : "0"),
+            rowOf("famille", tag.family),
+            rowOf("tag dans", n(tag.df) + " jeux")
+          );
+          tip.style.opacity = 1;
+          tip.style.left = Math.max(0, Math.min(labelW + j * cell + 18, W - 200)) + "px";
+          tip.style.top = Math.max(0, y - 10) + "px";
+        });
+        row.append(rect);
+      });
+      s.append(row);
+    });
+
+    s.addEventListener("pointerleave", function () { tip.style.opacity = 0; });
+    box.replaceChildren(tip, s);
+  }
+
+  function rowOf(label, value) {
+    var row = el("div", "tip-r");
+    row.append(el("span", null, label), el("b", null, value));
+    return row;
+  }
+
+  /* The detail panel: one game's tag profile, or one tag's heaviest games.
+     Both are read from the loaded corner of the matrix, not from the whole
+     thing, so they describe what is on screen. */
+  function renderMatrixDetail() {
+    var payload = matrix.payload;
+    var box = $("[data-matrix-detail]");
+    if (!payload || (matrix.game === null && matrix.tag === null)) {
+      box.hidden = true;
+      box.replaceChildren();
+      return;
+    }
+
+    var items = [];
+    var heading, sub;
+    if (matrix.game !== null) {
+      var game = payload.games[matrix.game];
+      heading = game.name;
+      sub = "appid " + game.appid + " · " + n(game.totalVotes) + " votes de tags"
+        + (game.releaseDate ? " · sortie " + game.releaseDate : "")
+        + " — poids parmi les " + payload.tags.length + " tags affichés";
+      payload.cells.forEach(function (c) {
+        if (c[0] === matrix.game) {
+          items.push({label: payload.tags[c[1]].tag, value: c[2]});
+        }
+      });
+    } else {
+      var tag = payload.tags[matrix.tag];
+      heading = tag.tag;
+      sub = "famille " + tag.family + " · présent dans " + n(tag.df) + " jeux · idf "
+        + String(tag.idf).replace(".", ",")
+        + " — poids parmi les " + payload.games.length + " jeux affichés";
+      payload.cells.forEach(function (c) {
+        if (c[1] === matrix.tag) {
+          items.push({label: payload.games[c[0]].name, value: c[2]});
+        }
+      });
+    }
+    items.sort(function (a, b) { return b.value - a.value; });
+    items = items.slice(0, 15);
+
+    var top = items.length ? items[0].value : 1;
+    var list = el("ol");
+    items.forEach(function (item) {
+      var li = el("li");
+      var meter = el("span", "meter");
+      var fill = el("i");
+      fill.style.width = Math.max(1, Math.round(100 * item.value / top)) + "%";
+      meter.append(fill);
+      li.append(el("span", null, item.label), meter,
+        el("b", null, String(item.value).replace(".", ",")));
+      list.append(li);
+    });
+
+    var close = el("button", "close", "Fermer");
+    close.type = "button";
+    close.addEventListener("click", function () {
+      matrix.game = null; matrix.tag = null;
+      drawHeat();
+      renderMatrixDetail();
+    });
+
+    box.replaceChildren(
+      el("h3", null, heading),
+      el("p", "detail-sub", sub),
+      items.length ? list : el("p", "note", "Aucun poids non nul ici."),
+      close
+    );
+    box.hidden = false;
+  }
+
+  function wireMatrixControls() {
+    var tag = $("[data-matrix-tag]");
+    if (!tag) return;  // the tab is not in the page
+    var debounce;
+    tag.addEventListener("input", function () {
+      clearTimeout(debounce);
+      debounce = setTimeout(function () { matrix.tag = null; loadMatrix(); }, 280);
+    });
+    ["[data-matrix-games]", "[data-matrix-tags]"].forEach(function (sel) {
+      $(sel).addEventListener("change", function () { matrix.tag = null; loadMatrix(); });
+    });
+    $("[data-matrix-sort]").addEventListener("change", function () {
+      if (matrix.payload && matrix.payload.available) { drawHeat(); }
+    });
+  }
+
+  /* ---- tabs -------------------------------------------------------------- */
+
+  function tabs() {
+    var nav = $("[data-tabs]");
+    if (!nav) return;
+    var buttons = Array.prototype.slice.call(nav.querySelectorAll('[role="tab"]'));
+    if (!buttons.length) return;
+    var panels = buttons.map(function (b) {
+      return document.getElementById(b.getAttribute("aria-controls"));
+    });
+
+    function show(id, focus) {
+      buttons.forEach(function (button, i) {
+        var on = button.id === id;
+        button.setAttribute("aria-selected", on ? "true" : "false");
+        button.tabIndex = on ? 0 : -1;
+        if (panels[i]) panels[i].hidden = !on;
+      });
+      if (id === "t-matrice" && !matrix.asked) { matrix.asked = true; loadMatrix(); }
+      // The panel was hidden until now, so its charts could not measure
+      // themselves; they draw at the size they actually have.
+      repaintAll();
+      var button = document.getElementById(id);
+      if (focus && button) button.focus();
+      if (window.history && history.replaceState) {
+        history.replaceState(null, "", "#" + id.slice(2));
+      }
+    }
+
+    buttons.forEach(function (button, i) {
+      button.addEventListener("click", function () { show(button.id, false); });
+      button.addEventListener("keydown", function (ev) {
+        var next = null;
+        if (ev.key === "ArrowRight") next = buttons[(i + 1) % buttons.length];
+        else if (ev.key === "ArrowLeft") next = buttons[(i - 1 + buttons.length) % buttons.length];
+        else if (ev.key === "Home") next = buttons[0];
+        else if (ev.key === "End") next = buttons[buttons.length - 1];
+        if (!next) return;
+        ev.preventDefault();
+        show(next.id, true);
+      });
+    });
+
+    nav.hidden = false;
+    var wanted = "t-" + (location.hash || "").replace(/^#/, "");
+    var start = buttons.filter(function (b) { return b.id === wanted; })[0] || buttons[0];
+    show(start.id, false);
+
+    window.addEventListener("hashchange", function () {
+      var id = "t-" + location.hash.replace(/^#/, "");
+      if (buttons.filter(function (b) { return b.id === id; }).length) show(id, false);
+    });
   }
 
   renderStrip();
@@ -869,4 +1427,6 @@
   renderWho();
   renderRoster();
   renderFooter();
+  wireMatrixControls();
+  tabs();
 })();

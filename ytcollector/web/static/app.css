@@ -337,3 +337,115 @@ footer p { margin: 0 0 4px; max-width: var(--measure); }
 
 .chrono-row:hover .chrono-bar { opacity: .75; }
 .dot-label { font-size: 10px; }
+
+/* ---- tabs -------------------------------------------------------------- */
+
+.tabs {
+  border-top: 1px solid var(--rule-soft);
+  background: var(--paper-sunk);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.tabs::-webkit-scrollbar { display: none; }
+.tabs-in {
+  display: flex; gap: 2px;
+  max-width: 1180px; margin: 0 auto;
+  padding: 0 var(--gutter);
+}
+.tabs-in button {
+  appearance: none; background: none; border: 0;
+  border-bottom: 2px solid transparent;
+  font: inherit; font-size: .86rem; color: var(--ink-soft);
+  padding: 11px 12px; white-space: nowrap; cursor: pointer;
+}
+.tabs-in button:hover { color: var(--ink); }
+.tabs-in button[aria-selected="true"] {
+  color: var(--ink); font-weight: 500; border-bottom-color: var(--signal);
+}
+.panel[hidden] { display: none; }
+.panel:focus { outline: none; }
+.panel > .band:first-child { padding-top: clamp(26px, 4vw, 48px); }
+
+/* ---- controls ---------------------------------------------------------- */
+
+.controls {
+  display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 22px;
+  margin: 0 0 1.4rem;
+}
+.field { display: inline-flex; flex-direction: column; gap: 4px; }
+.field > span { font-size: .74rem; color: var(--ink-soft); }
+.field input, .field select {
+  font: inherit; font-size: .86rem; color: var(--ink);
+  background: var(--paper); border: 1px solid var(--rule);
+  padding: 5px 8px; min-width: 9rem;
+}
+.field select { min-width: 7rem; }
+.switch {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: .82rem; color: var(--ink-soft);
+}
+.controls-note { font-size: .78rem; color: var(--ink-faint); }
+
+/* A legend whose entries switch their series off. */
+.legend-live button {
+  appearance: none; background: none; border: 0; padding: 0;
+  font: inherit; font-size: inherit; color: inherit; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 7px;
+}
+.legend-live button[aria-pressed="false"] { color: var(--ink-faint); }
+.legend-live button[aria-pressed="false"] i { opacity: .3; }
+.legend-live button:hover { color: var(--ink); }
+
+.roster thead th[data-sort] { cursor: pointer; user-select: none; }
+.roster thead th[data-sort]:hover { color: var(--ink); }
+.roster thead th[aria-sort] { color: var(--ink); }
+.roster thead th[aria-sort="ascending"]::after { content: " ↑"; }
+.roster thead th[aria-sort="descending"]::after { content: " ↓"; }
+
+/* ---- the game x tag matrix --------------------------------------------- */
+
+.heat-wrap { overflow-x: auto; overflow-y: hidden; }
+.heat-wrap svg { width: auto; min-width: 100%; }
+.heat-cell { stroke: var(--paper); stroke-width: .5; }
+.heat-cell:hover { stroke: var(--ink); stroke-width: 1.2; }
+.heat-label {
+  font-size: 10px; font-family: var(--sans); fill: var(--ink-soft);
+  cursor: pointer;
+}
+.heat-label:hover { fill: var(--ink); text-decoration: underline; }
+.heat-label[data-picked="yes"] { fill: var(--signal); font-weight: 600; }
+.heat-row-bg { fill: var(--paper-sunk); opacity: 0; }
+.heat-row:hover .heat-row-bg { opacity: .7; }
+
+.heat-key {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px;
+  font-size: .76rem; color: var(--ink-soft); margin: 0 0 10px;
+}
+.heat-key .ramp { display: flex; }
+.heat-key .ramp i { width: 20px; height: 9px; }
+
+.detail {
+  border-left: 2px solid var(--signal); padding: 2px 0 2px 16px;
+  margin-top: 1.6rem; max-width: 720px;
+}
+.detail h3 {
+  font-family: var(--serif); font-weight: 400; font-size: 1.12rem; margin: 0 0 .1em;
+}
+.detail .detail-sub { font-size: .78rem; color: var(--ink-faint); margin: 0 0 .9rem; }
+.detail ol { list-style: none; padding: 0; margin: 0; }
+.detail li {
+  display: grid; grid-template-columns: minmax(8rem, 14rem) 1fr auto;
+  align-items: center; gap: 10px; padding: 3px 0; font-size: .84rem;
+}
+.detail li span:first-child { color: var(--ink); }
+.detail .meter { background: var(--rule-soft); height: 8px; }
+.detail .meter i { display: block; height: 100%; background: var(--signal); }
+.detail li b {
+  font-weight: 500; font-variant-numeric: tabular-nums; color: var(--ink-soft);
+  font-size: .8rem;
+}
+.detail .close {
+  appearance: none; background: none; border: 1px solid var(--rule);
+  font: inherit; font-size: .76rem; color: var(--ink-soft);
+  padding: 2px 8px; margin-top: 12px; cursor: pointer;
+}

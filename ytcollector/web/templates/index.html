@@ -18,179 +18,307 @@
     <p class="mark">Procom<span>·</span>collecteur YouTube</p>
     <p class="strip-state" data-state-label>{{ state.stateLabel }}</p>
   </div>
+  <!-- Without JavaScript the whole page is one scroll, as before; the script
+       reveals the tabs and then shows one panel at a time. -->
+  <nav class="tabs" data-tabs hidden aria-label="Sections">
+    <div class="tabs-in" role="tablist">
+      <button type="button" role="tab" id="t-collecte" aria-controls="p-collecte">Collecte</button>
+      <button type="button" role="tab" id="t-twitch" aria-controls="p-twitch">Twitch</button>
+      <button type="button" role="tab" id="t-youtube" aria-controls="p-youtube">YouTube</button>
+      <button type="button" role="tab" id="t-franchises" aria-controls="p-franchises">Franchises</button>
+      <button type="button" role="tab" id="t-jeux" aria-controls="p-jeux">Les jeux</button>
+      <button type="button" role="tab" id="t-matrice" aria-controls="p-matrice">Matrice jeu × tags</button>
+      <button type="button" role="tab" id="t-donnees" aria-controls="p-donnees">Données</button>
+    </div>
+  </nav>
 </header>
 
 <main>
-  <section class="band" id="collecte" aria-labelledby="h-collecte">
-    <h1 id="h-collecte">La collecte avance au rythme du quota</h1>
-    <p class="lede">
-      YouTube n'accorde que <b data-per-day>{{ state.quota.searchPerDay | fr }}</b> appels de recherche par jour, remis à zéro
-      à minuit, heure du Pacifique. L'étude en demande <b data-total-slices>{{ state.progress.totalSlices | fr }} tranches</b>.
-      Chaque case ci-dessous vaut une journée de quota.
-    </p>
-
-    <div class="cal" data-calendar role="img" aria-label="Avancement de la collecte, une case par journée de quota"></div>
-
-    <dl class="readout">
-      <div><dt>Tranches collectées</dt><dd data-done>{{ state.progress.done | fr }}<small> / {{ state.progress.totalSlices | fr }}</small></dd></div>
-      <div><dt>Jours restants</dt><dd data-days>{{ state.progress.daysRemaining | fr }}</dd></div>
-      <div><dt>Appels restants aujourd'hui</dt><dd data-search-left>{{ state.quota.search_remaining | fr }}</dd></div>
-      <div><dt>Remise à zéro dans</dt><dd data-reset>{{ state.quota.resetsInLabel }}<small> heure du Pacifique</small></dd></div>
-    </dl>
-  </section>
-
-  <section class="band" aria-labelledby="h-corpus">
-    <h2 id="h-corpus">Ce qui est en base</h2>
-    <table class="corpus">
-      <tbody>
-        <tr><th scope="row">Jeux suivis</th><td data-c-games>{{ state.counts.games | fr }}</td><td class="hint" data-c-games-note>sur {{ state.counts.gamesTotal | fr }} entrées de l'étude</td></tr>
-        <tr><th scope="row">Vidéos découvertes</th><td data-c-videos>{{ state.counts.videos | fr }}</td><td class="hint" data-c-matched>{% if state.counts.videos %}{{ state.counts.matched | fr }} citent le jeu dans leur titre, tags ou description{% else %}aucune recherche lancée{% endif %}</td></tr>
-        <tr><th scope="row">Chaînes</th><td data-c-channels>{{ state.counts.channels | fr }}</td><td class="hint">éditrices des vidéos trouvées</td></tr>
-        <tr><th scope="row">Commentaires datés</th><td data-c-comments>{{ state.counts.comments | fr }}</td><td class="hint">horodatage seul, ni auteur ni texte</td></tr>
-        <tr><th scope="row">Vidéos avec leur historique</th><td data-c-withc>{{ state.counts.videosWithComments | fr }}</td><td class="hint" data-c-coverage>sur {{ state.counts.eligibleForComments | fr }} éligibles — c'est cette part qui décide de la fiabilité du score</td></tr>
-      </tbody>
-    </table>
-  </section>
-
-  <section class="band" aria-labelledby="h-twitch">
-    <h2 id="h-twitch">Le signal Twitch</h2>
-    <p class="note">
-      Heures regardées par mois, les quatre leaders détaillés et le reste du genre agrégé.
-      L'agrégat ne retient que les jeux actifs de l'étude : les quatre entrées dont le
-      battle royale n'est qu'un mode en sont exclues, Minecraft en tête. C'est la série
-      que le score d'attention viendra croiser. Un mois absent n'est pas un mois à zéro :
-      le jeu est passé sous le 200ᵉ rang.
-    </p>
-    <figure class="plot">
-      <div class="legend" data-legend></div>
-      <div class="canvas" data-chart-twitch></div>
-    </figure>
-  </section>
-
-  <section class="band" aria-labelledby="h-compare">
-    <h2 id="h-compare">YouTube contre Twitch, jeu par jeu</h2>
-    <p class="note">
-      Les deux signaux superposés, chacun ramené sur 0–100 par jeu : une seule échelle, car
-      ce qui compte n'est pas l'amplitude mais <b>l'écart entre les deux pics</b>. YouTube en
-      avance signale une demande qui précède l'audience ; en retard, une audience qui
-      entraîne les créateurs.
-    </p>
-    <div data-compare-empty>
-      <p class="empty">
-        Il manque le côté YouTube. L'indice d'attention répartit les vues cumulées de chaque
-        vidéo sur les mois où ses commentaires ont été écrits : sans collecte, il n'existe pas.
+  <div class="panel" id="p-collecte" role="tabpanel" aria-labelledby="t-collecte" tabindex="-1">
+    <section class="band" id="collecte" aria-labelledby="h-collecte">
+      <h1 id="h-collecte">La collecte avance au rythme du quota</h1>
+      <p class="lede">
+        YouTube n'accorde que <b data-per-day>{{ state.quota.searchPerDay | fr }}</b> appels de recherche par jour, remis à zéro
+        à minuit, heure du Pacifique. L'étude en demande <b data-total-slices>{{ state.progress.totalSlices | fr }} tranches</b>.
+        Chaque case ci-dessous vaut une journée de quota.
       </p>
-      <p class="note">
-        Retirez <code>YTC_DRY_RUN</code> du service de collecte, ou lancez <code>ytc daily</code>.
-        En attendant, le signal Twitch ci-dessus est complet.
-      </p>
-    </div>
-    <div class="compare" data-compare hidden></div>
-  </section>
 
-  <section class="band" aria-labelledby="h-franchise">
-    <h2 id="h-franchise">Les franchises</h2>
-    <p class="note">
-      PUBG et PUBG Mobile sont deux jeux distincts, chacun avec sa catégorie Twitch et
-      sa propre jointure — c'est ce qui permet de comparer des choses comparables. Mais
-      la franchise entière raconte aussi quelque chose. Ces courbes somment les membres,
-      des deux côtés, et ramènent chacune sur 0–100. Rien n'est compté deux fois dans le
-      genre : une franchise est une vue dérivée, jamais une entrée du catalogue.
-    </p>
-    <div data-franchise-empty>
-      <p class="empty">Aucune franchise n'a encore de données des deux côtés.</p>
-    </div>
-    <div class="compare" data-franchise hidden></div>
-  </section>
+      <div class="cal" data-calendar role="img" aria-label="Avancement de la collecte, une case par journée de quota"></div>
 
-  <section class="band" aria-labelledby="h-chrono">
-    <h2 id="h-chrono">La chronologie du genre</h2>
-    <p class="note">
-      Chaque barre couvre les mois où le jeu figure au top 200 Twitch, du plus ancien
-      arrivé au plus récent. Le trait vertical marque son mois de pic. Les trous sont
-      des mois passés sous le 200ᵉ rang, pas des mois à zéro.
-      <b>En gris</b> : les jeux dont le battle royale n'est qu'un mode, gardés pour
-      référence mais exclus de tous les agrégats.
-    </p>
-    <figure class="plot">
-      <div class="canvas" data-chart-chrono
-           aria-label="Présence de chaque jeu au top 200 Twitch, par ordre d'arrivée">—</div>
-    </figure>
-  </section>
+      <dl class="readout">
+        <div><dt>Tranches collectées</dt><dd data-done>{{ state.progress.done | fr }}<small> / {{ state.progress.totalSlices | fr }}</small></dd></div>
+        <div><dt>Jours restants</dt><dd data-days>{{ state.progress.daysRemaining | fr }}</dd></div>
+        <div><dt>Appels restants aujourd'hui</dt><dd data-search-left>{{ state.quota.search_remaining | fr }}</dd></div>
+        <div><dt>Remise à zéro dans</dt><dd data-reset>{{ state.quota.resetsInLabel }}<small> heure du Pacifique</small></dd></div>
+      </dl>
+    </section>
 
-  <section class="band" aria-labelledby="h-shape">
-    <h2 id="h-shape">Monter vite, tomber vite ?</h2>
-    <p class="note">
-      Pour chaque jeu : le nombre de mois mis à atteindre son pic, contre le nombre de
-      mois tenus après. La diagonale sépare les jeux qui s'écroulent plus vite qu'ils
-      n'ont monté de ceux qui durent. La taille du point est le volume d'heures regardées.
-      <b>En gris</b> : les jeux dont le battle royale n'est qu'un mode, hors agrégats.
-    </p>
-    <figure class="plot">
-      <div class="canvas" data-chart-shape
-           aria-label="Mois jusqu'au pic contre mois après le pic, un point par jeu">—</div>
-    </figure>
-  </section>
-
-  <section class="band" aria-labelledby="h-who">
-    <h2 id="h-who">Qui publie, et sous quelle forme</h2>
-    <p class="note">
-      Concentration des vues entre les chaînes, mois par mois. Un indice de Herfindahl
-      élevé signifie qu'une poignée de chaînes capte presque tout ; une baisse signifie
-      que la tendance s'est élargie. C'est la matière de la question 2.
-    </p>
-    <div data-who-empty>
-      <p class="empty">
-        Rien à montrer tant que la collecte YouTube n'a pas produit d'agrégats mensuels.
-      </p>
-    </div>
-    <div class="who-grid" data-who hidden></div>
-  </section>
-
-  <section class="band" aria-labelledby="h-roster">
-    <h2 id="h-roster">Les jeux de l'étude</h2>
-    <p class="note">
-      <b data-roster-on>{{ state.counts.games | fr }}</b> actifs. Les autres n'ont le battle royale que comme mode et
-      restent désactivés. <i>Tranches</i> est le coût de collecte de chaque jeu.
-    </p>
-    <div class="scroll">
-      <table class="roster">
-        <thead>
-          <tr>
-            <th scope="col">Jeu</th>
-            <th scope="col">Rôle</th>
-            <th scope="col" class="num">Mois</th>
-            <th scope="col">Période</th>
-            <th scope="col">Pic</th>
-            <th scope="col" class="num">Rang</th>
-            <th scope="col" class="num">Heures</th>
-            <th scope="col" class="num">Tranches</th>
-          </tr>
-        </thead>
-        <tbody data-roster></tbody>
+    <section class="band" aria-labelledby="h-corpus">
+      <h2 id="h-corpus">Ce qui est en base</h2>
+      <table class="corpus">
+        <tbody>
+          <tr><th scope="row">Jeux suivis</th><td data-c-games>{{ state.counts.games | fr }}</td><td class="hint" data-c-games-note>sur {{ state.counts.gamesTotal | fr }} entrées de l'étude</td></tr>
+          <tr><th scope="row">Vidéos découvertes</th><td data-c-videos>{{ state.counts.videos | fr }}</td><td class="hint" data-c-matched>{% if state.counts.videos %}{{ state.counts.matched | fr }} citent le jeu dans leur titre, tags ou description{% else %}aucune recherche lancée{% endif %}</td></tr>
+          <tr><th scope="row">Chaînes</th><td data-c-channels>{{ state.counts.channels | fr }}</td><td class="hint">éditrices des vidéos trouvées</td></tr>
+          <tr><th scope="row">Commentaires datés</th><td data-c-comments>{{ state.counts.comments | fr }}</td><td class="hint">horodatage seul, ni auteur ni texte</td></tr>
+          <tr><th scope="row">Vidéos avec leur historique</th><td data-c-withc>{{ state.counts.videosWithComments | fr }}</td><td class="hint" data-c-coverage>sur {{ state.counts.eligibleForComments | fr }} éligibles — c'est cette part qui décide de la fiabilité du score</td></tr>
+        </tbody>
       </table>
-    </div>
-  </section>
-</main>
+    </section>
+  </div>
 
-<section class="band" aria-labelledby="h-export">
-  <h2 id="h-export">Emporter les données</h2>
-  <p class="note">
-    Quatre tables en CSV, construites à la demande depuis la base de collecte.
-    <code>joined</code> est celle de l'analyse : Twitch et YouTube côte à côte sur
-    <code>(game_id, year, month)</code>.
-  </p>
-  <ul class="downloads">
-    <li><a href="/export/joined.csv" download>joined.csv</a>
-        <span>Twitch et YouTube joints — la table d'analyse</span></li>
-    <li><a href="/export/yt_game_month.csv" download>yt_game_month.csv</a>
-        <span>score d'attention et agrégats YouTube mensuels</span></li>
-    <li><a href="/export/twitch_game_month.csv" download>twitch_game_month.csv</a>
-        <span>heures regardées par jeu et par mois, <code>valid_from</code> appliqué</span></li>
-    <li><a href="/export/games.csv" download>games.csv</a>
-        <span>les 43 entrées de l'étude et leurs agrégats</span></li>
-  </ul>
-</section>
+  <div class="panel" id="p-twitch" role="tabpanel" aria-labelledby="t-twitch" tabindex="-1">
+    <section class="band" aria-labelledby="h-twitch">
+      <h2 id="h-twitch">Le signal Twitch</h2>
+      <p class="note">
+        Heures regardées par mois, les quatre leaders détaillés et le reste du genre agrégé.
+        L'agrégat ne retient que les jeux actifs de l'étude : les quatre entrées dont le
+        battle royale n'est qu'un mode en sont exclues, Minecraft en tête. C'est la série
+        que le score d'attention viendra croiser. Un mois absent n'est pas un mois à zéro :
+        le jeu est passé sous le 200ᵉ rang.
+        <b>Cliquez une entrée de la légende</b> pour masquer sa courbe, l'échelle se recalcule.
+      </p>
+      <figure class="plot">
+        <div class="legend legend-live" data-legend></div>
+        <div class="canvas" data-chart-twitch></div>
+      </figure>
+    </section>
+
+    <section class="band" aria-labelledby="h-chrono">
+      <h2 id="h-chrono">La chronologie du genre</h2>
+      <p class="note">
+        Chaque barre couvre les mois où le jeu figure au top 200 Twitch, du plus ancien
+        arrivé au plus récent. Le trait vertical marque son mois de pic. Les trous sont
+        des mois passés sous le 200ᵉ rang, pas des mois à zéro.
+        <b>En gris</b> : les jeux dont le battle royale n'est qu'un mode, gardés pour
+        référence mais exclus de tous les agrégats.
+      </p>
+      <div class="controls">
+        <label class="switch">
+          <input type="checkbox" data-chrono-modes checked> Montrer les jeux « mode seul »
+        </label>
+        <label class="switch">
+          <input type="checkbox" data-chrono-sort> Classer par volume d'heures
+        </label>
+      </div>
+      <figure class="plot">
+        <div class="canvas" data-chart-chrono
+             aria-label="Présence de chaque jeu au top 200 Twitch, par ordre d'arrivée">—</div>
+      </figure>
+    </section>
+
+    <section class="band" aria-labelledby="h-shape">
+      <h2 id="h-shape">Monter vite, tomber vite ?</h2>
+      <p class="note">
+        Pour chaque jeu : le nombre de mois mis à atteindre son pic, contre le nombre de
+        mois tenus après. La diagonale sépare les jeux qui s'écroulent plus vite qu'ils
+        n'ont monté de ceux qui durent. La taille du point est le volume d'heures regardées.
+        <b>En gris</b> : les jeux dont le battle royale n'est qu'un mode, hors agrégats.
+      </p>
+      <figure class="plot">
+        <div class="canvas" data-chart-shape
+             aria-label="Mois jusqu'au pic contre mois après le pic, un point par jeu">—</div>
+      </figure>
+    </section>
+  </div>
+
+  <div class="panel" id="p-youtube" role="tabpanel" aria-labelledby="t-youtube" tabindex="-1">
+    <section class="band" aria-labelledby="h-compare">
+      <h2 id="h-compare">YouTube contre Twitch, jeu par jeu</h2>
+      <p class="note">
+        Les deux signaux superposés, chacun ramené sur 0–100 par jeu : une seule échelle, car
+        ce qui compte n'est pas l'amplitude mais <b>l'écart entre les deux pics</b>. YouTube en
+        avance signale une demande qui précède l'audience ; en retard, une audience qui
+        entraîne les créateurs.
+      </p>
+      <div data-compare-empty>
+        <p class="empty">
+          Il manque le côté YouTube. L'indice d'attention répartit les vues cumulées de chaque
+          vidéo sur les mois où ses commentaires ont été écrits : sans collecte, il n'existe pas.
+        </p>
+        <p class="note">
+          Retirez <code>YTC_DRY_RUN</code> du service de collecte, ou lancez <code>ytc daily</code>.
+          En attendant, le signal Twitch ci-dessus est complet.
+        </p>
+      </div>
+      <div class="controls" data-compare-controls hidden>
+        <label class="field">
+          <span>Filtrer un jeu</span>
+          <input type="search" data-filter="compare" placeholder="fortnite, pubg…" autocomplete="off">
+        </label>
+        <span class="controls-note" data-filter-count="compare"></span>
+      </div>
+      <div class="compare" data-compare hidden></div>
+    </section>
+
+    <section class="band" aria-labelledby="h-who">
+      <h2 id="h-who">Qui publie, et sous quelle forme</h2>
+      <p class="note">
+        Concentration des vues entre les chaînes, mois par mois. Un indice de Herfindahl
+        élevé signifie qu'une poignée de chaînes capte presque tout ; une baisse signifie
+        que la tendance s'est élargie. C'est la matière de la question 2.
+      </p>
+      <div data-who-empty>
+        <p class="empty">
+          Rien à montrer tant que la collecte YouTube n'a pas produit d'agrégats mensuels.
+        </p>
+      </div>
+      <div class="controls" data-who-controls hidden>
+        <label class="field">
+          <span>Filtrer un jeu</span>
+          <input type="search" data-filter="who" placeholder="fortnite, pubg…" autocomplete="off">
+        </label>
+        <span class="controls-note" data-filter-count="who"></span>
+      </div>
+      <div class="who-grid" data-who hidden></div>
+    </section>
+  </div>
+
+  <div class="panel" id="p-franchises" role="tabpanel" aria-labelledby="t-franchises" tabindex="-1">
+    <section class="band" aria-labelledby="h-franchise">
+      <h2 id="h-franchise">Les franchises</h2>
+      <p class="note">
+        PUBG et PUBG Mobile sont deux jeux distincts, chacun avec sa catégorie Twitch et
+        sa propre jointure — c'est ce qui permet de comparer des choses comparables. Mais
+        la franchise entière raconte aussi quelque chose. Ces courbes somment les membres,
+        des deux côtés, et ramènent chacune sur 0–100. Rien n'est compté deux fois dans le
+        genre : une franchise est une vue dérivée, jamais une entrée du catalogue.
+      </p>
+      <div data-franchise-empty>
+        <p class="empty">Aucune franchise n'a encore de données des deux côtés.</p>
+      </div>
+      <div class="compare" data-franchise hidden></div>
+    </section>
+  </div>
+
+  <div class="panel" id="p-jeux" role="tabpanel" aria-labelledby="t-jeux" tabindex="-1">
+    <section class="band" aria-labelledby="h-roster">
+      <h2 id="h-roster">Les jeux de l'étude</h2>
+      <p class="note">
+        <b data-roster-on>{{ state.counts.games | fr }}</b> actifs. Les autres n'ont le battle royale que comme mode et
+        restent désactivés. <i>Tranches</i> est le coût de collecte de chaque jeu.
+        <b>Cliquez un en-tête</b> pour trier.
+      </p>
+      <div class="controls">
+        <label class="field">
+          <span>Filtrer</span>
+          <input type="search" data-filter="roster" placeholder="nom du jeu" autocomplete="off">
+        </label>
+        <span class="controls-note" data-filter-count="roster"></span>
+      </div>
+      <div class="scroll">
+        <table class="roster">
+          <thead>
+            <tr>
+              <th scope="col" data-sort="name">Jeu</th>
+              <th scope="col" data-sort="role">Rôle</th>
+              <th scope="col" class="num" data-sort="months">Mois</th>
+              <th scope="col" data-sort="first">Période</th>
+              <th scope="col" data-sort="peak">Pic</th>
+              <th scope="col" class="num" data-sort="rank">Rang</th>
+              <th scope="col" class="num" data-sort="hours">Heures</th>
+              <th scope="col" class="num" data-sort="slices">Tranches</th>
+            </tr>
+          </thead>
+          <tbody data-roster></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <div class="panel" id="p-matrice" role="tabpanel" aria-labelledby="t-matrice" tabindex="-1">
+    <section class="band" aria-labelledby="h-matrix">
+      <h2 id="h-matrix">La matrice jeu × tags</h2>
+      <p class="note">
+        Le socle des genres (<code>docs/SPEC_GENRES.md</code>) : une ligne par jeu, une colonne
+        par tag Steam, et pour valeur la part des votes du tag dans le jeu, pondérée en TF-IDF
+        puis normalisée. C'est cette matrice que la NMF factorise en
+        <code>V ≈ W × H</code>. Survolez une case pour son poids, cliquez un jeu ou un tag
+        pour son profil.
+      </p>
+      <p class="note hint">
+        Les deux CSV sources sont des données client sous accord de confidentialité : cette
+        vue ne sort jamais de la machine locale. Le service ne la sert que si
+        <code>YTC_GENRES_LOCAL=1</code> est posé dans son environnement, et rien de ce qu'elle
+        montre n'est versionné.
+      </p>
+
+      <div data-matrix-empty>
+        <p class="empty" data-matrix-reason>Matrice non chargée.</p>
+        <p class="note" data-matrix-howto></p>
+      </div>
+
+      <div data-matrix hidden>
+        <dl class="readout" data-matrix-stats></dl>
+
+        <div class="controls">
+          <label class="field">
+            <span>Filtrer les tags</span>
+            <input type="search" data-matrix-tag placeholder="co-op, royale, pixel…" autocomplete="off">
+          </label>
+          <label class="field">
+            <span>Jeux</span>
+            <select data-matrix-games>
+              <option value="30">30</option>
+              <option value="60" selected>60</option>
+              <option value="100">100</option>
+              <option value="200">200</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Tags</span>
+            <select data-matrix-tags>
+              <option value="20">20</option>
+              <option value="40" selected>40</option>
+              <option value="60">60</option>
+              <option value="120">120</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Trier les jeux</span>
+            <select data-matrix-sort>
+              <option value="votes" selected>par votes</option>
+              <option value="selected">par le tag choisi</option>
+              <option value="name">par nom</option>
+            </select>
+          </label>
+          <span class="controls-note" data-matrix-count></span>
+        </div>
+
+        <div class="heat-key" data-matrix-key></div>
+        <figure class="plot">
+          <div class="canvas heat-wrap" data-matrix-heat></div>
+        </figure>
+        <aside class="detail" data-matrix-detail hidden></aside>
+      </div>
+    </section>
+  </div>
+
+  <div class="panel" id="p-donnees" role="tabpanel" aria-labelledby="t-donnees" tabindex="-1">
+    <section class="band" aria-labelledby="h-export">
+      <h2 id="h-export">Emporter les données</h2>
+      <p class="note">
+        Quatre tables en CSV, construites à la demande depuis la base de collecte.
+        <code>joined</code> est celle de l'analyse : Twitch et YouTube côte à côte sur
+        <code>(game_id, year, month)</code>.
+      </p>
+      <ul class="downloads">
+        <li><a href="/export/joined.csv" download>joined.csv</a>
+            <span>Twitch et YouTube joints — la table d'analyse</span></li>
+        <li><a href="/export/yt_game_month.csv" download>yt_game_month.csv</a>
+            <span>score d'attention et agrégats YouTube mensuels</span></li>
+        <li><a href="/export/twitch_game_month.csv" download>twitch_game_month.csv</a>
+            <span>heures regardées par jeu et par mois, <code>valid_from</code> appliqué</span></li>
+        <li><a href="/export/games.csv" download>games.csv</a>
+            <span>les 43 entrées de l'étude et leurs agrégats</span></li>
+      </ul>
+      <p class="note hint">
+        Rien de dérivé des données client n'est exporté ici : les sorties de
+        <code>ytc genres</code> restent dans <code>data/processed/genres/</code>.
+      </p>
+    </section>
+  </div>
+</main>
 
 <footer>
   <p>
